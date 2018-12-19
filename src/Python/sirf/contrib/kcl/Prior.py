@@ -39,7 +39,7 @@ class Prior(object):
             zidx = widx
             nN = w*w*w
         
-        X,Y,Z = np.meshgrid(np.arange(1,n+1), np.arange(1,m+1), np.arange(1,h+1))                
+        Y,X,Z = np.meshgrid(np.arange(0,m), np.arange(0,n), np.arange(0,h))                
         N = np.zeros([n*m*h, nN],dtype='int32')
         D = np.zeros([n*m*h, nN],dtype='float')
         l = 0
@@ -49,7 +49,7 @@ class Prior(object):
                 Ynew = self.__setBoundary(Y + y, m)
                 for z in zidx:
                     Znew = self.__setBoundary(Z + z, h)
-                    N[:,l] = (Ynew + (Xnew-1)*n + (Znew-1)*n*m)-1
+                    N[:,l] = (Xnew + (Ynew)*n + (Znew)*n*m).reshape(-1,1).flatten('F')
                     D[:,l] = np.sqrt(x**2+y**2+z**2)
                     l += 1
         D = 1/D
@@ -58,10 +58,10 @@ class Prior(object):
         return N, D
     
     def __setBoundary(self,X,n):
-        idx = X<1
-        X[idx] = 2-X[idx]
-        idx = X>n
-        X[idx] = 2*n-X[idx]
+        idx = X<0
+        X[idx] = X[idx]+n
+        idx = X>n-1
+        X[idx] = X[idx]-n
         return X.flatten('F')
 
     def imCrop(self,img=None):
