@@ -1,14 +1,14 @@
 #%% Initial imports etc
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import numpy as np
 import matplotlib.pyplot as plt
 import os
 import shutil
 import pSTIR as pet
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
 
 from ccpi.optimisation.algorithms import Algorithm
 from ccpi.optimisation.functions import ZeroFunction
@@ -112,7 +112,7 @@ class FISTA_OS(Algorithm):
     
 #% go to directory with input files
 
-EXAMPLE = 'SMALL'
+EXAMPLE = 'SIMULATION'
 
 if EXAMPLE == 'SIMULATION':
     # adapt this path to your situation (or start everything in the relevant directory)
@@ -250,7 +250,6 @@ ref_data = mu_map.clone()
 regularizer = FGP_dTV(ref_data, lambdaReg,iterationsTV,tolerance,eta_const, methodTV,
                       nonnegativity,device)
                  
-iteration = 0
 x_init = init_image.clone()
 fista = FISTA_OS()
 fista.set_up(x_init=x_init, f=fidelity, g=regularizer)
