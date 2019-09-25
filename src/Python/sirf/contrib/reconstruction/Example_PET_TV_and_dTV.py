@@ -6,21 +6,24 @@ from __future__ import unicode_literals
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import gridspec
 import os
 import shutil
-import pSTIR as pet
+#import pSTIR as pet
+from sirf import STIR as pet
 
 from ccpi.optimisation.algorithms import Algorithm
-from ccpi.optimisation.functions import ZeroFunction
 import numpy
 
 
 from sirf.Utilities import examples_data_path
 from ccpi.optimisation.algorithms import CGLS, PDHG, FISTA
 from ccpi.optimisation.operators import BlockOperator, LinearOperator
-from ccpi.optimisation.functions import KullbackLeibler, IndicatorBox, BlockFunction, MixedL21Norm, ZeroFunction
+from ccpi.optimisation.functions import KullbackLeibler, IndicatorBox, \
+          BlockFunction, MixedL21Norm, ZeroFunction
 from ccpi.framework import ImageData
 from ccpi.plugins.regularisers import FGP_TV, FGP_dTV
+#from ccpi.plugins.regularisers import FGP_TV
 
 
 class FISTA_OS(Algorithm):
@@ -84,10 +87,12 @@ class FISTA_OS(Algorithm):
             
     def update(self):
         #self.t_old = self.t
+        self.x_old.fill(self.x)
         self.t_old = 1
         self.t = 1
         #self.f.gradient(self.y, out=self.u)
-        i = numpy.random.randint(0, self.f.num_subsets)
+        #i = numpy.random.randint(0, self.f.num_subsets)
+        i = 0
         self.u = self.f.gradient(self.y, i)
         #self.u.__imul__( -self.invL )
         self.u.__imul__( self.invL )
@@ -101,7 +106,6 @@ class FISTA_OS(Algorithm):
         self.y.__imul__ ((self.t_old-1)/self.t)
         self.y.__iadd__( self.x )
         
-        self.x_old.fill(self.x)
 
         
     def update_objective(self):
@@ -117,7 +121,8 @@ EXAMPLE = 'SIMULATION'
 if EXAMPLE == 'SIMULATION':
     # adapt this path to your situation (or start everything in the relevant directory)
     #os.chdir('/home/sirfuser/Documents/Hackathon4/')
-    os.chdir('/Users/me549/Desktop/hackathon4/PET/SimulationData')
+    #os.chdir('/Users/me549/Desktop/hackathon4/PET/SimulationData')
+    os.chdir('/mnt/data/CCPPETMR/201909_hackathon/Simulations/PET/SimulationData')
     #
     ##%% copy files to working folder and change directory to where the output files are
     shutil.rmtree('exhale-output',True)
@@ -125,8 +130,10 @@ if EXAMPLE == 'SIMULATION':
     os.chdir('exhale-output')
     
     attenuation_header = 'pet_dyn_4D_resp_simul_dynamic_0_state_0_attenuation_map.hv'
+    attenuation_header = attenuation_header.encode('ascii','replace')
     image_header = attenuation_header
     sinogram_header = 'pet_dyn_4D_resp_simul_dynamic_0_state_0.hs'
+    sinogram_header = sinogram_header.encode('ascii', 'replace')
 
 elif EXAMPLE == 'SMALL':
     # adapt this path to your situation (or start everything in the relevant directory)
@@ -169,7 +176,7 @@ am = pet.AcquisitionModelUsingRayTracingMatrix()
 am.set_num_tangential_LORs(12)
 am.set_num_tangential_LORs(5)
 templ = pet.AcquisitionData(sinogram_header)
-pet.AcquisitionData.set_storage_scheme('memory')
+#pet.AcquisitionData.set_storage_scheme('memory')
 am.set_up(templ,image)
 
 #% simulate some data using forward projection
@@ -233,39 +240,162 @@ def show_iterate(it, obj, x):
     
     
 #%%
-fidelity.L = 1000
+fidelity.L = 1
 #regularizer = ZeroFunction()
 #regularizer = IndicatorBox(lower=0)
 
-lambdaReg = .005 / fidelity.num_subsets
-iterationsTV = 50
+lambdaReg = 5. / fidelity.num_subsets
+iterationsTV = 500
 tolerance = 1e-5
 methodTV = 0
 nonnegativity = True
 printing = False
-device = 'cpu'
-#regularizer = FGP_TV(lambdaReg,iterationsTV,tolerance,methodTV,nonnegativity,printing,device)
-eta_const = 1e-2
+device = 'gpu'
+regularizer = FGP_TV(lambdaReg,iterationsTV,tolerance,methodTV,nonnegativity,printing,device)
+eta_const = 1e+2
 ref_data = mu_map.clone()
-regularizer = FGP_dTV(ref_data, lambdaReg,iterationsTV,tolerance,eta_const, methodTV,
-                      nonnegativity,device)
+#regularizer = FGP_dTV(ref_data, lambdaReg,iterationsTV,tolerance,eta_const,
+#                      methodTV, nonnegativity, device)
                  
+# regularizer = ZeroFunction()
 x_init = init_image.clone()
 fista = FISTA_OS()
 fista.set_up(x_init=x_init, f=fidelity, g=regularizer)
 fista.max_iteration = 500
 
 #%%
-fista.run(50, verbose=True)
-    
-#%%    
-plt.clf()
-plt.imshow(fista.x.as_array()[0])
-plt.title('iter={}'.format(iteration))
-plt.colorbar()
-plt.show()
+last_result = x_init.as_array()
+
+def show_slices(iteration, objective, solution):
+    result = solution.as_array()
+    fig = plt.figure(figsize=(10,3))
+    gs = gridspec.GridSpec(1, 4, figure=fig, width_ratios=(1,1,1,0.2))
+
+    figno = 0
+    sliceno = 45
+    # first graph
+    ax = fig.add_subplot(gs[0, figno])
+    aximg = ax.imshow(result[sliceno])
+    ax.set_title('iter={}, slice {}'.format(iteration, sliceno))
+
+    figno += 1
+    sliceno += 10
+    # first graph
+    ax = fig.add_subplot(gs[0,figno])
+    aximg = ax.imshow(result[sliceno])
+    ax.set_title('iter={}, slice {}'.format(iteration, sliceno))
+
+    figno += 1
+    sliceno += 10
+    # first graph
+    ax = fig.add_subplot(gs[0,figno])
+    aximg = ax.imshow(result[sliceno])
+    ax.set_title('iter={}, slice {}'.format(iteration, sliceno))
+
+
+
+    # colorbar
+    axes = fig.add_subplot(gs[0,figno+1])
+    plt.colorbar(aximg, cax=axes)
+
+    # adjust spacing between plots
+    fig.tight_layout() 
+    #plt.subplots_adjust(wspace=0.4)
+    last_result = result
+    plt.show()
+
+#fista.run(5, verbose=False, callback=show_slices)
+for _ in fista:
+    if fista.iteration >= 5:
+        break
+    show_slices(fista.iteration, 0, fista.get_output()-fista.x_old)   
+
 
 #%%
+
+
+
+result = fista.get_output().as_array()
+
+fig = plt.figure(figsize=(10,3))
+gs = gridspec.GridSpec(1, 4, figure=fig, width_ratios=(1,1,1,0.2))
+
+figno = 0
+sliceno = 45
+# first graph
+ax = fig.add_subplot(gs[0, figno])
+aximg = ax.imshow(result[sliceno])
+ax.set_title('iter={}, slice {}'.format(fista.iteration, sliceno))
+
+figno += 1
+sliceno += 10
+# first graph
+ax = fig.add_subplot(gs[0,figno])
+aximg = ax.imshow(result[sliceno])
+ax.set_title('iter={}, slice {}'.format(fista.iteration, sliceno))
+
+figno += 1
+sliceno += 10
+# first graph
+ax = fig.add_subplot(gs[0,figno])
+aximg = ax.imshow(result[sliceno])
+ax.set_title('iter={}, slice {}'.format(fista.iteration, sliceno))
+
+
+
+# colorbar
+axes = fig.add_subplot(gs[0,figno+1])
+plt.colorbar(aximg, cax=axes)
+
+# adjust spacing between plots
+fig.tight_layout() 
+#plt.subplots_adjust(wspace=0.4)
+plt.show()
+
+fname = "FISTA_reg_L{}_it{}".format(fidelity.L, fista.iteration)
+saveto = os.path.join(os.getcwd(), fname)
+plt.savefig(saveto)
+
+#%%
+#%matplotlib inline    
+#plt.clf()
+
+#fig = plt.figure(figsize=(10,30))
+#figno = 1
+#sliceno = 45
+#ax = fig.add_subplot(1,4,figno)
+#aximg = ax.imshow(result[sliceno])
+#ax.set_title('iter={}, slice {}'.format(fista.iteration, sliceno))
+#aximg.set_clim(clim.min(), clim.max())
+##plt.colorbar()
+#
+#sliceno += 10 
+#figno += 1
+#ax = fig.add_subplot(1,4,figno)
+#aximg = ax.imshow(result[sliceno])
+#ax.set_title('iter={}, slice {}'.format(fista.iteration, sliceno ))
+#aximg.set_clim(clim.min(), clim.max())
+##plt.colorbar()
+#
+#
+#sliceno += 10 
+#figno += 1
+#ax = fig.add_subplot(1,4,figno)
+#aximg = ax.imshow(result[sliceno])
+#ax.set_title('iter={}, slice {}'.format(fista.iteration, sliceno ))
+#aximg.set_clim(clim.min(), clim.max())
+#
+#
+#figno+=1
+#ax = fig.add_subplot(1,4,figno)
+##ax.subplots_adjust(bottom=0.2, right=0.8, top=0.9)
+##cax = plt.axes([0.85, 0.1, 0.075, 0.8])
+#plt.colorbar(aximg, cax=ax)
+#
+#plt.show()
+
+#%%
+if False:
     recon = pet.OSMAPOSLReconstructor()
     recon.set_objective_function(fidelity)
     recon.set_num_subsets(2)
