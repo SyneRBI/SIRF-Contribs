@@ -1,10 +1,3 @@
-#!/usr/bin/env python2
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Sep 25 14:37:32 2019
-
-@author: edo
-"""
 #%% Initial imports etc
 from __future__ import absolute_import
 from __future__ import division
@@ -20,7 +13,6 @@ import shutil
 from sirf import STIR as pet
 
 from ccpi.optimisation.algorithms import Algorithm
-from ccpi.optimisation.functions import ZeroFunction
 import numpy
 
 
@@ -30,11 +22,8 @@ from ccpi.optimisation.operators import BlockOperator, LinearOperator
 from ccpi.optimisation.functions import KullbackLeibler, IndicatorBox, \
           BlockFunction, MixedL21Norm, ZeroFunction
 from ccpi.framework import ImageData
-#from ccpi.plugins.regularisers import FGP_TV, FGP_dTV
-from ccpi.plugins.regularisers import FGP_TV
-    
-    
-#% go to directory with input files
+from ccpi.plugins.regularisers import FGP_TV, FGP_dTV
+
 
 EXAMPLE = 'SIMULATION'
 
@@ -68,13 +57,13 @@ elif EXAMPLE == 'SMALL':
     attenuation_header = 'attenuation.hv'
     sinogram_header = 'template_sinogram.hs'
 
+#%
+
+#% Read in images
 image = pet.ImageData(image_header);
 image_array=image.as_array()
 mu_map = pet.ImageData(attenuation_header);
 mu_map_array=mu_map.as_array();
-
-
-#% create acquisition model
 
 am = pet.AcquisitionModelUsingRayTracingMatrix()
 # we will increate the number of rays used for every Line-of-Response (LOR) as an example
@@ -82,88 +71,85 @@ am = pet.AcquisitionModelUsingRayTracingMatrix()
 am.set_num_tangential_LORs(12)
 am.set_num_tangential_LORs(5)
 templ = pet.AcquisitionData(sinogram_header)
+#pet.AcquisitionData.set_storage_scheme('memory')
 am.set_up(templ,image)
 
-noisy_data = templ.clone()
-fidelity = pet.PoissonLogLikelihoodWithLinearModelForMeanAndProjData()
-fidelity.set_acquisition_model(am)
-fidelity.set_acquisition_data(noisy_data)
-fidelity.set_num_subsets(1)
-fidelity.num_subsets = 1
-fidelity.set_up(image)
+projected_image = am.adjoint(templ)
+result = projected_image.as_array()
+    
+#%%
+L = 0.01
+#regularizer = ZeroFunction()
+#regularizer = IndicatorBox(lower=0)
+
+lambdaReg = 5. 
+iterationsTV = 50
+tolerance = 1e-5
+methodTV = 0
+nonnegativity = True
+printing = False
+device = 'gpu'
+regularizer0 = FGP_TV(lambdaReg,iterationsTV,tolerance,methodTV,nonnegativity,printing,device)
+reg0 = regularizer0.proximal(projected_image, 1/L)
+
+eta_const = 1e-2
+#ref_data = mu_map.clone()
+regularizer1 = FGP_dTV(mu_map, lambdaReg,iterationsTV,tolerance,eta_const,
+                      methodTV, nonnegativity, device)
+
+reg1 = regularizer1.proximal(projected_image, 1/L)
 
 
-if True:
-    recon = pet.OSMAPOSLReconstructor()
-    recon.set_objective_function(fidelity)
-    recon.set_num_subsets(2)
-    recon.set_num_subiterations(20)
-    recon.set_input(noisy_data)
 
-    # set up the reconstructor based on a sample image
-    # (checks the validity of parameters, sets up objective function
-    # and other objects involved in the reconstruction, which involves
-    # computing/reading sensitivity image etc etc.)
-    print('setting up, please wait...')
-    
-    init_image=image.clone()
-    init_image.fill(.1)
-    recon.set_up(init_image)
-    
+fig = plt.figure(figsize=(10,3))
+gs = gridspec.GridSpec(2, 4, figure=fig, width_ratios=(1,1,1,1))
+figno = 0
+sliceno = 65
+# first graph
+ax = fig.add_subplot(gs[0, figno])
+aximg = ax.imshow(result[sliceno])
+ax.set_title('original, slice {}'.format(sliceno))
 
-    recon.set_current_estimate(init_image)
-    
-    
-    recon.process()
-    
-    x1 = recon.get_current_estimate()
-    fname = 'OSMAPOSL_rec.v'.encode('ascii', 'replace') 
-    saveto = os.path.join(os.getcwd(), fname)
-    print("saving to {}".format(saveto))
-    x1.write(saveto)
-    
-    
 
-    
-    result = x1.as_array()
-    
-    fig = plt.figure(figsize=(10,3))
-    gs = gridspec.GridSpec(1, 4, figure=fig, width_ratios=(1,1,1,0.2))
-    
-    figno = 0
-    sliceno = 45
-    # first graph
-    ax = fig.add_subplot(gs[0, figno])
-    aximg = ax.imshow(result[sliceno])
-    ax.set_title('OSMAPOSL iter={}, slice {}'.format(20, sliceno))
-    
-    figno += 1
-    sliceno += 10
-    # first graph
-    ax = fig.add_subplot(gs[0,figno])
-    aximg = ax.imshow(result[sliceno])
-    ax.set_title('OSMAPOSL iter={}, slice {}'.format(20, sliceno))
-    
-    figno += 1
-    sliceno += 10
-    # first graph
-    ax = fig.add_subplot(gs[0,figno])
-    aximg = ax.imshow(result[sliceno])
-    ax.set_title('OSMAPOSL iter={}, slice {}'.format(20, sliceno))
-    
-    
-    
-    # colorbar
-    axes = fig.add_subplot(gs[0,figno+1])
-    plt.colorbar(aximg, cax=axes)
-    
-    # adjust spacing between plots
-    fig.tight_layout() 
-    #plt.subplots_adjust(wspace=0.4)
-    plt.show()
-    
-    #fname = "FISTA_reg_L{}_it{}".format(fidelity.L, fista.iteration)
-    #saveto = os.path.join(os.getcwd(), fname)
-    #plt.savefig(saveto)
-    
 
+figno += 1
+# first graph
+ax = fig.add_subplot(gs[0, figno])
+aximg = ax.imshow(reg0.as_array()[sliceno])
+ax.set_title('TV, tau {}, slice {}'.format(1/L, sliceno))
+
+figno += 1
+# first graph
+ax = fig.add_subplot(gs[0, figno])
+aximg = ax.imshow(mu_map.as_array()[sliceno])
+ax.set_title('mu_map, slice {}'.format(sliceno))
+
+figno += 1
+# first graph
+ax = fig.add_subplot(gs[0, figno])
+aximg = ax.imshow(reg1.as_array()[sliceno])
+ax.set_title('dTV, tau {}, slice {}'.format(1/L, sliceno))
+
+####
+figno = 1
+# first graph
+ax = fig.add_subplot(gs[1, figno])
+aximg = ax.imshow((projected_image-reg0).as_array()[sliceno])
+ax.set_title('orig - TV'.format(1/L, sliceno))
+
+figno = 3
+# first graph
+ax = fig.add_subplot(gs[1, figno])
+aximg = ax.imshow((projected_image-reg1).as_array()[sliceno])
+ax.set_title('orig - dTV'.format(sliceno))
+
+figno = 2
+# first graph
+ax = fig.add_subplot(gs[1, figno])
+aximg = ax.imshow((reg1-reg0).as_array()[sliceno])
+ax.set_title('regularisers difference'.format(1/L, sliceno))
+
+# adjust spacing between plots
+fig.tight_layout() 
+#plt.subplots_adjust(wspace=0.4)
+plt.show()

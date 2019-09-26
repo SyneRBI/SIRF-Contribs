@@ -98,13 +98,18 @@ class FISTA_OS(Algorithm):
         self.u.__imul__( self.invL )
         self.u.__iadd__( self.y )
 
-        self.g.proximal(self.u, self.invL, out=self.x)
+        #self.g.proximal(self.u, self.invL, out=self.x)
+        self.x = self.g.proximal(self.u, self.invL)
         
         self.t = 0.5*(1 + numpy.sqrt(1 + 4*(self.t_old**2)))
         
-        self.y = self.x - self.x_old
-        self.y.__imul__ ((self.t_old-1)/self.t)
-        self.y.__iadd__( self.x )
+        #self.y = self.x - self.x_old
+        #self.y.__imul__ ((self.t_old-1)/self.t)
+        #self.y.__iadd__( self.x )
+        self.x.subtract(self.x_old, out=self.y)
+        self.y.multiply((self.t_old-1)/self.t, out=self.y)
+        self.y.add(self.x, out=self.y)
+        #self.y = self.y * ((self.t_old-1)/self.t) + self.x
         
 
         
@@ -179,6 +184,9 @@ templ = pet.AcquisitionData(sinogram_header)
 #pet.AcquisitionData.set_storage_scheme('memory')
 am.set_up(templ,image)
 
+# see test operator passes dot_test
+assert LinearOperator.dot_test(am) == True
+
 #% simulate some data using forward projection
 
 if EXAMPLE == 'SIMULATION':
@@ -240,19 +248,19 @@ def show_iterate(it, obj, x):
     
     
 #%%
-fidelity.L = 1
+fidelity.L = .1
 #regularizer = ZeroFunction()
 #regularizer = IndicatorBox(lower=0)
 
 lambdaReg = 5. / fidelity.num_subsets
-iterationsTV = 500
+iterationsTV = 50
 tolerance = 1e-5
 methodTV = 0
 nonnegativity = True
 printing = False
 device = 'gpu'
 regularizer = FGP_TV(lambdaReg,iterationsTV,tolerance,methodTV,nonnegativity,printing,device)
-eta_const = 1e+2
+eta_const = 1e-2
 ref_data = mu_map.clone()
 #regularizer = FGP_dTV(ref_data, lambdaReg,iterationsTV,tolerance,eta_const,
 #                      methodTV, nonnegativity, device)
@@ -261,7 +269,7 @@ ref_data = mu_map.clone()
 x_init = init_image.clone()
 fista = FISTA_OS()
 fista.set_up(x_init=x_init, f=fidelity, g=regularizer)
-fista.max_iteration = 500
+fista.max_iteration = 2
 
 #%%
 last_result = x_init.as_array()
@@ -304,11 +312,86 @@ def show_slices(iteration, objective, solution):
     last_result = result
     plt.show()
 
-#fista.run(5, verbose=False, callback=show_slices)
-for _ in fista:
-    if fista.iteration >= 5:
-        break
-    show_slices(fista.iteration, 0, fista.get_output()-fista.x_old)   
+interactive_plot = False
+import multiprocessing
+class ProcessLinePlotter(object):
+    '''from https://matplotlib.org/3.1.0/gallery/misc/multiprocess_sgskip.html'''
+    
+    def __init__(self):
+        self.x = []
+        self.y = []
+    def __call__(self, pipe):
+        '''configure on call'''
+        print ("Starting LinePlotter")
+        self.pipe = pipe
+        self.fig , self.ax = plt.subplots()
+        timer = self.fig.canvas.new_timer(interval=1000)
+        timer.add_callback(self.call_back)
+        timer.start()
+        print ('Done')
+        plt.show()
+
+    def terminate(self):
+        '''terminate the process'''
+        plt.close('all')
+    def call_back(self):
+        '''callback to plot to the canvas'''
+        while self.pipe.poll():
+            command = self.pipe.recv()
+            if command is None:
+                self.terminate()
+                return False
+            else:
+                # save the data for plotting
+                self.x.append(command[0])
+                self.y.append(command[1])
+                y = [el/self.y[0] for el in self.y]
+                self.ax.semilogy(self.x, y, 'ro-')
+        self.fig.canvas.draw()
+        return True
+
+
+if interactive_plot:
+    
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    #plt.ion()
+    #im = fig.add_subplot(122)
+    #im.imshow(abs(x_init.as_array()[0]))
+    fig.show()
+    fig.canvas.draw()
+    plt.show()
+
+    for _ in fista:
+        if fista.iteration >= 5:
+            break
+        ax.clear()
+        #pixval.append( gd.get_output().as_array()[0][46][160])
+        #print ("\rIteration {} Loss: {} pix {}".format(fista.iteration, 
+        #       gd.get_last_loss(), pixval[-1]/gadgval))
+        ax.semilogy([val/fista.loss[0] for val in fista.loss])
+        #im.imshow(abs(gd.get_output().as_array()[0]))
+        fig.canvas.draw()
+else:
+    #fista.run(5, verbose=False, callback=show_slices)
+    plotter = ProcessLinePlotter()
+    plot_pipe, plotter_pipe = multiprocessing.Pipe()
+    plot_process = multiprocessing.Process(target=plotter, 
+              args=(plotter_pipe,))
+    plot_process.start()
+    iterations = 1
+    fista.max_iteration -= 1
+    while iterations > 0:
+        fista.max_iteration += iterations
+        for _ in fista:
+            #show_slices(fista.iteration, 0, fista.get_output()-fista.x_old)   
+            send = plot_pipe.send
+            send((fista.iteration, fista.get_last_objective()))
+        iterations = input("Run more iterations? Specify how many. Negative means stop: ")
+    
+    send = plot_pipe.send
+    send(None)
+
 
 
 #%%
