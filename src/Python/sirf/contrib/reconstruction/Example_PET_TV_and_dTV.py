@@ -86,20 +86,21 @@ class FISTA_OS(Algorithm):
         self.configured = True
             
     def update(self):
-        #self.t_old = self.t
+        self.t_old = self.t
         self.x_old.fill(self.x)
-        self.t_old = 1
-        self.t = 1
+        #self.t_old = 1
+        #self.t = 1
         #self.f.gradient(self.y, out=self.u)
         #i = numpy.random.randint(0, self.f.num_subsets)
         i = 0
         self.u = self.f.gradient(self.y, i)
+        # negative gradient is returned from STIR
         #self.u.__imul__( -self.invL )
         self.u.__imul__( self.invL )
         self.u.__iadd__( self.y )
 
         #self.g.proximal(self.u, self.invL, out=self.x)
-        self.x = self.g.proximal(self.u, self.invL)
+        self.x = self.g.proximal(self.u, self.invL / self.invL *1e-3)
         
         self.t = 0.5*(1 + numpy.sqrt(1 + 4*(self.t_old**2)))
         
@@ -115,6 +116,7 @@ class FISTA_OS(Algorithm):
         
     def update_objective(self):
         #self.loss.append(0)  
+        # negative objective is returned from STIR
         self.loss.append( -self.f(self.x) + self.g(self.x) )     
     
     
@@ -248,7 +250,7 @@ def show_iterate(it, obj, x):
     
     
 #%%
-fidelity.L = .1
+fidelity.L = 1e0
 #regularizer = ZeroFunction()
 #regularizer = IndicatorBox(lower=0)
 
@@ -261,12 +263,14 @@ printing = False
 device = 'gpu'
 regularizer = FGP_TV(lambdaReg,iterationsTV,tolerance,methodTV,nonnegativity,printing,device)
 eta_const = 1e-2
-ref_data = mu_map.clone()
-#regularizer = FGP_dTV(ref_data, lambdaReg,iterationsTV,tolerance,eta_const,
-#                      methodTV, nonnegativity, device)
+
+if False:
+    ref_data = mu_map.clone()
+    regularizer = FGP_dTV(ref_data, lambdaReg,iterationsTV,tolerance,eta_const,
+                      methodTV, nonnegativity, device)
                  
 # regularizer = ZeroFunction()
-x_init = init_image.clone()
+x_init = init_image * 0.
 fista = FISTA_OS()
 fista.set_up(x_init=x_init, f=fidelity, g=regularizer)
 fista.max_iteration = 2
@@ -345,8 +349,13 @@ class ProcessLinePlotter(object):
                 # save the data for plotting
                 self.x.append(command[0])
                 self.y.append(command[1])
-                y = [el/self.y[0] for el in self.y]
-                self.ax.semilogy(self.x, y, 'ro-')
+                img = command[2]
+                #y = [el/self.y[0] for el in self.y]
+                #self.ax.plot(self.x, self.y, 'r-')
+                self.ax.imshow(img)
+                self.ax.set_title('iter={}, Obj {}'.format(len(self.x), self.y[-1]))
+
+                #self.fig.colorbar()
         self.fig.canvas.draw()
         return True
 
@@ -386,7 +395,7 @@ else:
         for _ in fista:
             #show_slices(fista.iteration, 0, fista.get_output()-fista.x_old)   
             send = plot_pipe.send
-            send((fista.iteration, fista.get_last_objective()))
+            send((fista.iteration, fista.get_last_objective(),fista.get_output().as_array()[64]))
         iterations = input("Run more iterations? Specify how many. Negative means stop: ")
     
     send = plot_pipe.send
@@ -437,7 +446,7 @@ plt.show()
 
 fname = "FISTA_reg_L{}_it{}".format(fidelity.L, fista.iteration)
 saveto = os.path.join(os.getcwd(), fname)
-plt.savefig(saveto)
+#plt.savefig(saveto)
 
 #%%
 #%matplotlib inline    
