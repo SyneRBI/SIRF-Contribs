@@ -100,7 +100,7 @@ class FISTA_OS(Algorithm):
         self.u.__iadd__( self.y )
 
         #self.g.proximal(self.u, self.invL, out=self.x)
-        self.x = self.g.proximal(self.u, self.invL / self.invL *1e-3)
+        self.x = self.g.proximal(self.u, self.invL )
         
         self.t = 0.5*(1 + numpy.sqrt(1 + 4*(self.t_old**2)))
         
@@ -250,12 +250,16 @@ def show_iterate(it, obj, x):
     
     
 #%%
-fidelity.L = 1e0
+fidelity.L = 1e4
 #regularizer = ZeroFunction()
 #regularizer = IndicatorBox(lower=0)
 
-lambdaReg = 5. / fidelity.num_subsets
-iterationsTV = 50
+# l = lambdaReg / fidelity.L
+# lambdaReg = l * fidelity.L = 1e-4 * 1e4 = 1e0
+l = 1e2
+lambdaReg = l * fidelity.L / fidelity.num_subsets
+#lambdaReg = 1e0 / fidelity.num_subsets
+iterationsTV = 100
 tolerance = 1e-5
 methodTV = 0
 nonnegativity = True
@@ -263,7 +267,9 @@ printing = False
 device = 'gpu'
 regularizer = FGP_TV(lambdaReg,iterationsTV,tolerance,methodTV,nonnegativity,printing,device)
 eta_const = 1e-2
+#regularizer = ZeroFunction()
 
+#regularizer = ZeroFunction()
 if False:
     ref_data = mu_map.clone()
     regularizer = FGP_dTV(ref_data, lambdaReg,iterationsTV,tolerance,eta_const,
@@ -328,7 +334,7 @@ class ProcessLinePlotter(object):
         '''configure on call'''
         print ("Starting LinePlotter")
         self.pipe = pipe
-        self.fig , self.ax = plt.subplots()
+        self.fig , self.ax = plt.subplots(1,2)
         timer = self.fig.canvas.new_timer(interval=1000)
         timer.add_callback(self.call_back)
         timer.start()
@@ -351,9 +357,12 @@ class ProcessLinePlotter(object):
                 self.y.append(command[1])
                 img = command[2]
                 #y = [el/self.y[0] for el in self.y]
-                #self.ax.plot(self.x, self.y, 'r-')
-                self.ax.imshow(img)
-                self.ax.set_title('iter={}, Obj {}'.format(len(self.x), self.y[-1]))
+                self.ax[0].imshow(img)
+                #plt.colorbar(img, cax=self.ax[1])
+                self.ax[1].plot(self.x, self.y, 'r-')
+                self.ax[0].set_title('min={:.3e}, max={:.3e}'.format(img.min(), img.max()))
+
+                self.ax[1].set_title('iter={}, Obj {}'.format(len(self.x), self.y[-1]))
 
                 #self.fig.colorbar()
         self.fig.canvas.draw()
@@ -384,9 +393,12 @@ if interactive_plot:
 else:
     #fista.run(5, verbose=False, callback=show_slices)
     plotter = ProcessLinePlotter()
+    # parent, child
     plot_pipe, plotter_pipe = multiprocessing.Pipe()
+    # attach the child pipe to the process 
     plot_process = multiprocessing.Process(target=plotter, 
               args=(plotter_pipe,))
+    # start the process
     plot_process.start()
     iterations = 1
     fista.max_iteration -= 1
@@ -394,18 +406,18 @@ else:
         fista.max_iteration += iterations
         for _ in fista:
             #show_slices(fista.iteration, 0, fista.get_output()-fista.x_old)   
-            send = plot_pipe.send
-            send((fista.iteration, fista.get_last_objective(),fista.get_output().as_array()[64]))
-        iterations = input("Run more iterations? Specify how many. Negative means stop: ")
+            plot_pipe.send((fista.iteration, fista.get_last_objective(),fista.get_output().as_array()[64]))
+        iterations = input("Run more iterations? Specify how many. Zero to stop: ")
+    # close the plot
+    plot_pipe.send(None)
     
-    send = plot_pipe.send
-    send(None)
 
 
 
 #%%
 
-
+fname = "FISTA_L_{:.2e}_l_{:.2e}_it_{}.h".format(fidelity.L, 0, fista.iteration).encode('ascii', 'replace')
+fista.get_output().write(fname)
 
 result = fista.get_output().as_array()
 
