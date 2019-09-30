@@ -12,6 +12,60 @@ from ccpi.optimisation.functions import KullbackLeibler, IndicatorBox, FunctionO
 from ccpi.framework import ImageData
 from ccpi.plugins.regularisers import FGP_TV
 
+# Define norm for the acquisition model
+def norm(self):
+    return LinearOperator.PowerMethod(self, 10)[0]
+    
+setattr(pet.AcquisitionModelUsingRayTracingMatrix, 'norm', norm)
+
+from sirf.Utilities import check_status, assert_validity
+import sirf.pystir as pystir
+
+def KL_call(self, x):
+    return -1*self.get_value(x)
+
+def gradient(self, image, subset = -1, out = None):
+    
+    assert_validity(image, pet.ImageData)
+    grad = pet.ImageData()
+    grad.handle = pystir.cSTIR_objectiveFunctionGradient\
+        (self.handle, image.handle, subset)
+    check_status(grad.handle)
+    
+    if out is None:
+        return -1*grad  
+    else:
+        out.fill(-1*grad)
+        
+def KL_proximal_conjugate(self, x, tau, out=None):
+        
+        r'''Proximal operator of the convex conjugate of KullbackLeibler at x:
+           
+           .. math::     prox_{\tau * f^{*}}(x)
+        '''        
+                
+        if out is None:
+            z = x + tau * self.bnoise
+            return 0.5*((z + 1) - ((z-1)**2 + 4 * tau * self.b).sqrt())
+        else:
+            
+            tmp = tau * self.bnoise
+            tmp += x
+            tmp -= 1
+            
+            self.b.multiply(4*tau, out=out)    
+            
+            out.add(tmp.power(2), out=out)
+            out.sqrt(out=out)
+            out *= -1
+            tmp += 2
+            out += tmp
+            out *= 0.5        
+
+setattr(pet.ObjectiveFunction, '__call__', KL_call)
+setattr(pet.PoissonLogLikelihoodWithLinearModelForMeanAndProjData, 'gradient', gradient)
+setattr(pet.PoissonLogLikelihoodWithLinearModelForMeanAndProjData, 'proximal_conjugate', KL_proximal_conjugate)
+
 #% go to directory with input files
 
 EXAMPLE = 'SMALL'
@@ -62,18 +116,14 @@ plt.colorbar()
 plt.title('Attenuation')
 plt.show()
 
-# Define norm for the acquisition model
-def norm(self):
-    return LinearOperator.PowerMethod(self, 10)[0]
-    
-setattr(pet.AcquisitionModelUsingRayTracingMatrix, 'norm', norm)
+
 
 #%%
 
 am = pet.AcquisitionModelUsingRayTracingMatrix()
 # we will increate the number of rays used for every Line-of-Response (LOR) as an example
 # (it is not required for the exercise of course)
-am.set_num_tangential_LORs(5)
+am.set_num_tangential_LORs(12)
 templ = pet.AcquisitionData(sinogram_header)
 pet.AcquisitionData.set_storage_scheme('memory')
 am.set_up(templ,image)
@@ -98,14 +148,6 @@ elif EXAMPLE == 'SMALL':
     print(' Maximum counts in the data: %d' % noisy_array.max())
     noisy_data.fill(noisy_array)
 
-
-
-#%% Display bitmaps of a middle sinogram
-    
-plt.imshow(noisy_array[0,0,:,:])
-plt.title('Acquisition Data')
-plt.show()
-
 # Show util per iteration
 def show_data(it, obj, x):
     plt.imshow(x.as_array()[0])
@@ -116,9 +158,44 @@ def show_data(it, obj, x):
 
 alpha = 2.5
 
-ALGORITHM = 'FISTA_CIL' # or PDHG_CIL, PDHG_SIRF, FISTA_CIL, FISTA_SIRF, OSMAPOSL
+ALGORITHM = 'PDHG_SIRF' # or PDHG_CIL, PDHG_SIRF, FISTA_CIL, FISTA_SIRF, OSMAPOSL
 
-if  ALGORITHM == 'PDHG_CIL':
+if  ALGORITHM == 'PDHG_SIRF':
+    
+    operator = am      
+    g = FGP_TV(alpha, 50, 1e-7, 0, 1, 0, 'cpu' ) 
+    
+    fidelity = pet.PoissonLogLikelihoodWithLinearModelForMeanAndProjData()
+    fidelity.set_acquisition_model(am)
+    fidelity.set_acquisition_data(noisy_data)
+    fidelity.set_num_subsets(2)
+    fidelity.set_up(image)
+    fidelity.L = 100
+    fidelity.b = noisy_data
+    fidelity.bnoise = noisy_data * 0.0
+    
+    normK = operator.norm()
+         
+    sigma = 0.001
+    tau = 1/(sigma*normK**2)     
+    
+    def SIRF_update_objective(self):
+
+        p1 = self.f(self.x) + self.g(self.x)
+        d1 = -(self.f.convex_conjugate(self.y) + self.g.convex_conjugate(-1*self.operator.adjoint(self.y)))
+
+        self.loss.append([p1, d1, p1-d1])    
+    
+    setattr(PDHG, 'update_objective', SIRF_update_objective)
+        
+    # Setup and run the PDHG algorithm
+    pdhg = PDHG(f = fidelity, g = g, operator = operator, tau = tau, sigma = sigma)
+    pdhg.max_iteration = 500
+    pdhg.update_objective_interval = 50
+    pdhg.run(1000, callback = show_data)
+    sol_pdhg = pdhg.get_output()
+
+elif  ALGORITHM == 'PDHG_CIL':
     
     method = 'implicit'
     
@@ -153,6 +230,7 @@ if  ALGORITHM == 'PDHG_CIL':
     pdhg.max_iteration = 500
     pdhg.update_objective_interval = 50
     pdhg.run(1000, callback = show_data)
+    sol_pdhg = pdhg.get_output()
         
 elif ALGORITHM == 'FISTA_CIL':
     
@@ -162,70 +240,32 @@ elif ALGORITHM == 'FISTA_CIL':
     f.L = 100
     g = FGP_TV(alpha, 50, 1e-7, 0, 1, 0, 'cpu' )
     
-    # initial image
-    
-#    init_image=image.clone()
-#    cmax = image_array.max()
-#    init_image.fill(cmax/32)
-#    init_image = image.clone()
-#    
-#    def make_cylindrical_FOV(image):
-#        """truncate to cylindrical FOV"""
-#        filter = pet.TruncateToCylinderProcessor()
-#        filter.apply(image)
-#    
-#    make_cylindrical_FOV(init_image)
-#    
-#    plt.imshow(init_image.as_array()[0])
-#    plt.colorbar()
-#    plt.show()
-    
-#    cmax = image.as_array().max()
     x_init = image.allocate(1)
     fista = FISTA(x_init=x_init, f = f, g = g)
     fista.max_iteration = 500
     fista.update_objective_interval = 50
     fista.run(500, verbose=True, callback = show_data) 
     
+    sol_fista_cil = fista.get_output()
+    
 elif ALGORITHM == 'FISTA_SIRF':
     
-    from sirf.Utilities import check_status, assert_validity
-    import sirf.pystir as pystir
-
-    def KL_call(self, x):
-        return -self.get_value(x)
-    
-    def gradient(self, image, subset = -1, out = None):
-        
-        assert_validity(image, pet.ImageData)
-        grad = pet.ImageData()
-        grad.handle = pystir.cSTIR_objectiveFunctionGradient\
-            (self.handle, image.handle, subset)
-        check_status(grad.handle)
-        
-        if out is None:
-            return -1*grad  
-        else:
-            out.fill(-1*grad)
-
-    setattr(pet.ObjectiveFunction, '__call__', KL_call)
-    setattr(pet.PoissonLogLikelihoodWithLinearModelForMeanAndProjData, 'gradient', gradient)
-
     fidelity = pet.PoissonLogLikelihoodWithLinearModelForMeanAndProjData()
     fidelity.set_acquisition_model(am)
     fidelity.set_acquisition_data(noisy_data)
-    fidelity.set_num_subsets(4)
+#    fidelity.set_num_subsets(2)
     fidelity.set_up(image)
     fidelity.L = 100
         
     g = FGP_TV(alpha, 50, 1e-7, 0, 1, 0, 'cpu' )
 
-    x_init = image.allocate(1) #init_image.clone()
-#    x_init = image.clone()
+    x_init = image.allocate(1) 
     fista = FISTA(x_init = x_init, f = fidelity, g = g)
     fista.max_iteration = 2000
-    fista.update_objective_interval = 200
+    fista.update_objective_interval = 50
     fista.run(2000, verbose=True, callback = show_data) 
+    
+    sol_fista_sirf = fista.get_output()
     
 elif ALGORITHM == 'OSMAPOSL':
     
@@ -237,8 +277,8 @@ elif ALGORITHM == 'OSMAPOSL':
     
     recon = pet.OSMAPOSLReconstructor()
     recon.set_objective_function(fidelity)
-    recon.set_num_subsets(4)
-    num_iters=10;
+    recon.set_num_subsets(2)
+    num_iters = 10;
     recon.set_num_subiterations(num_iters)
     
     reconstructed_image = image.allocate(1)
@@ -248,6 +288,6 @@ elif ALGORITHM == 'OSMAPOSL':
     plt.imshow(reconstructed_image.as_array()[0])
     plt.colorbar()
     plt.show()    
-
     
-    
+    sol_osmap = reconstructed_image
+        
