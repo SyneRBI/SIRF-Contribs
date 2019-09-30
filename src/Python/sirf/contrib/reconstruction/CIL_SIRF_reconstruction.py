@@ -11,6 +11,9 @@ from ccpi.optimisation.operators import GradientSIRF, BlockOperator, LinearOpera
 from ccpi.optimisation.functions import KullbackLeibler, IndicatorBox, FunctionOperatorComposition, BlockFunction, MixedL21Norm    
 from ccpi.framework import ImageData
 from ccpi.plugins.regularisers import FGP_TV
+import scipy
+
+#%%
 
 # Define norm for the acquisition model
 def norm(self):
@@ -36,6 +39,13 @@ def gradient(self, image, subset = -1, out = None):
         return -1*grad  
     else:
         out.fill(-1*grad)
+        
+def KL_convex_conjugate(self, x):
+    
+    '''Convex conjugate of KullbackLeibler at x'''
+    
+    xlogy = - scipy.special.xlogy(self.b.as_array(), 1 - x.as_array())
+    return np.sum(xlogy)        
         
 def KL_proximal_conjugate(self, x, tau, out=None):
         
@@ -65,10 +75,12 @@ def KL_proximal_conjugate(self, x, tau, out=None):
 setattr(pet.ObjectiveFunction, '__call__', KL_call)
 setattr(pet.PoissonLogLikelihoodWithLinearModelForMeanAndProjData, 'gradient', gradient)
 setattr(pet.PoissonLogLikelihoodWithLinearModelForMeanAndProjData, 'proximal_conjugate', KL_proximal_conjugate)
+setattr(pet.PoissonLogLikelihoodWithLinearModelForMeanAndProjData, 'convex_conjugate', KL_convex_conjugate)
+
 
 #% go to directory with input files
 
-EXAMPLE = 'SMALL'
+EXAMPLE = 'BRAIN'
 
 if EXAMPLE == 'SIMULATION':
     
@@ -86,11 +98,20 @@ if EXAMPLE == 'SIMULATION':
 elif EXAMPLE == 'SMALL':
     # adapt this path to your situation (or start everything in the relevant directory)
     os.chdir(examples_data_path('PET'))
-    #
-    ##%% copy files to working folder and change directory to where the output files are
+#    #
+#    ##%% copy files to working folder and change directory to where the output files are
     shutil.rmtree('working_folder/thorax_single_slice',True)
     shutil.copytree('thorax_single_slice','working_folder/thorax_single_slice')
     os.chdir('working_folder/thorax_single_slice')
+        
+elif EXAMPLE == 'BRAIN':
+    # adapt this path to your situation (or start everything in the relevant directory)
+    os.chdir(examples_data_path('PET'))
+#    #
+#    ##%% copy files to working folder and change directory to where the output files are
+    shutil.rmtree('working_folder/brain',True)
+    shutil.copytree('brain','working_folder/brain')
+    os.chdir('working_folder/brain')
     
     image_header = 'emission.hv'
     attenuation_header = 'attenuation.hv'
@@ -116,8 +137,6 @@ plt.colorbar()
 plt.title('Attenuation')
 plt.show()
 
-
-
 #%%
 
 am = pet.AcquisitionModelUsingRayTracingMatrix()
@@ -135,7 +154,7 @@ if EXAMPLE == 'SIMULATION':
     image.fill(1)
     noisy_data = acquired_data.clone()
 
-elif EXAMPLE == 'SMALL':
+elif EXAMPLE == 'SMALL' or EXAMPLE == 'BRAIN':
     
     acquired_data=am.forward(image)
     
@@ -150,13 +169,13 @@ elif EXAMPLE == 'SMALL':
 
 # Show util per iteration
 def show_data(it, obj, x):
-    plt.imshow(x.as_array()[0])
+    plt.imshow(x.as_array()[10])
     plt.colorbar()
     plt.show()
 
 #%% TV reconstruction using algorithm below
 
-alpha = 2.5
+alpha = 0.1
 
 ALGORITHM = 'PDHG_SIRF' # or PDHG_CIL, PDHG_SIRF, FISTA_CIL, FISTA_SIRF, OSMAPOSL
 
@@ -177,6 +196,8 @@ if  ALGORITHM == 'PDHG_SIRF':
     normK = operator.norm()
          
     sigma = 0.001
+    #sigma = 0.001 for thorax one slice and for brain
+    
     tau = 1/(sigma*normK**2)     
     
     def SIRF_update_objective(self):
@@ -191,7 +212,7 @@ if  ALGORITHM == 'PDHG_SIRF':
     # Setup and run the PDHG algorithm
     pdhg = PDHG(f = fidelity, g = g, operator = operator, tau = tau, sigma = sigma)
     pdhg.max_iteration = 500
-    pdhg.update_objective_interval = 50
+    pdhg.update_objective_interval = 10
     pdhg.run(1000, callback = show_data)
     sol_pdhg = pdhg.get_output()
 
