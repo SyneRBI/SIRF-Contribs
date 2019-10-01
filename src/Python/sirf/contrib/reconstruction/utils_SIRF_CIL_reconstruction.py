@@ -22,8 +22,9 @@ def run_CIL_SIRF_utils():
     # No need to add negative sign
     def SIRF_KL_call(self, x):
         
-        return self.get_value(x) 
-#        tmp = self.b.as_array() - self.b.as_array() * np.log(np.maximum(self.b.as_array(),1e-6))
+        ind = self.b.as_array()>0
+        tmp = self.b.as_array()[ind] - self.b.as_array()[ind] * np.log(self.b.as_array()[ind])
+        return - self.get_value(x) - tmp.sum()
 #        return self.get_value(x) - tmp.sum()
     
 #    def Kullback_CIL(self, x):
