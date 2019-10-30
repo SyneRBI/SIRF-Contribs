@@ -5,7 +5,7 @@ import numpy as np
 
 class Prior(object):
         
-    def __init__(self,imageSize, sWindowSize=3, lWindowSize=1, imageCropFactor=[0]):
+    def __init__(self,imageSize, sWindowSize=3, imageCropFactor=[0]):
         
         self.imageSize = imageSize if len(imageSize)==3 else imageSize.append(1)
         self.imageCropFactor = imageCropFactor
@@ -13,16 +13,10 @@ class Prior(object):
             self.sWindowSize = sWindowSize
         else:
             raise ValueError("search window size must be odd")
-        if np.mod(lWindowSize,2):
-            self.lWindowSize = lWindowSize
-        else:
-            raise ValueError("local window size must be odd")
         self.is3D = 1 if imageSize[2]>1 else 0 
         self.nS = sWindowSize**3 if self.is3D else sWindowSize**2
-        self.nL = lWindowSize**3 if self.is3D else lWindowSize**2        
         _,self.imageSizeCrop= self.imCrop()  
         self.SearchWindow, self.Wd = self.__neighborhood(self.sWindowSize)
-        self.LocalWindow,_ = self.__neighborhood(self.lWindowSize)
 
     def __neighborhood(self,w):
         
