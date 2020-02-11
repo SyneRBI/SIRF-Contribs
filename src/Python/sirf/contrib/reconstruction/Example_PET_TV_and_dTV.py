@@ -24,7 +24,7 @@ from ccpi.optimisation.functions import KullbackLeibler, IndicatorBox, \
 from ccpi.framework import ImageData
 from ccpi.plugins.regularisers import FGP_TV, FGP_dTV
 #from ccpi.plugins.regularisers import FGP_TV
-
+import sys
 
 class FISTA_OS(Algorithm):
     
@@ -251,6 +251,8 @@ def show_iterate(it, obj, x):
     
 #%%
 fidelity.L = 1e4
+fidelity.L = float(sys.argv[1])
+
 #regularizer = ZeroFunction()
 #regularizer = IndicatorBox(lower=0)
 
@@ -267,7 +269,7 @@ printing = False
 device = 'gpu'
 regularizer = FGP_TV(lambdaReg,iterationsTV,tolerance,methodTV,nonnegativity,printing,device)
 eta_const = 1e-2
-#regularizer = ZeroFunction()
+regularizer = ZeroFunction()
 
 #regularizer = ZeroFunction()
 if False:
@@ -400,14 +402,20 @@ else:
               args=(plotter_pipe,))
     # start the process
     plot_process.start()
-    iterations = 1
+    run_iterations = [10, 30, 50, 70, 100, 125, 150]
+    j = 0
+    iterations = run_iterations[j] - 1
     fista.max_iteration -= 1
+    # norm of solution as iterate
+    sol_norm = []
     while iterations > 0:
         fista.max_iteration += iterations
         for _ in fista:
             #show_slices(fista.iteration, 0, fista.get_output()-fista.x_old)   
             plot_pipe.send((fista.iteration, fista.get_last_objective(),fista.get_output().as_array()[64]))
-        iterations = input("Run more iterations? Specify how many. Zero to stop: ")
+            sol_norm.append((fista.iteration, fista.get_output().norm()))
+        #iterations = input("Run more iterations? Specify how many. Zero to stop: ")
+        iterations = 0
     # close the plot
     plot_pipe.send(None)
     
@@ -419,45 +427,49 @@ else:
 fname = "FISTA_L_{:.2e}_l_{:.2e}_it_{}.h".format(fidelity.L, 0, fista.iteration).encode('ascii', 'replace')
 fista.get_output().write(fname)
 
-result = fista.get_output().as_array()
+nsol_norm = numpy.asarray(sol_norm)
+numpy.save(fname+'.npy', nsol_norm)
 
-fig = plt.figure(figsize=(10,3))
-gs = gridspec.GridSpec(1, 4, figure=fig, width_ratios=(1,1,1,0.2))
+if False:
+    result = fista.get_output().as_array()
 
-figno = 0
-sliceno = 45
-# first graph
-ax = fig.add_subplot(gs[0, figno])
-aximg = ax.imshow(result[sliceno])
-ax.set_title('iter={}, slice {}'.format(fista.iteration, sliceno))
+    fig = plt.figure(figsize=(10,3))
+    gs = gridspec.GridSpec(1, 4, figure=fig, width_ratios=(1,1,1,0.2))
 
-figno += 1
-sliceno += 10
-# first graph
-ax = fig.add_subplot(gs[0,figno])
-aximg = ax.imshow(result[sliceno])
-ax.set_title('iter={}, slice {}'.format(fista.iteration, sliceno))
+    figno = 0
+    sliceno = 45
+    # first graph
+    ax = fig.add_subplot(gs[0, figno])
+    aximg = ax.imshow(result[sliceno])
+    ax.set_title('iter={}, slice {}'.format(fista.iteration, sliceno))
 
-figno += 1
-sliceno += 10
-# first graph
-ax = fig.add_subplot(gs[0,figno])
-aximg = ax.imshow(result[sliceno])
-ax.set_title('iter={}, slice {}'.format(fista.iteration, sliceno))
+    figno += 1
+    sliceno += 10
+    # first graph
+    ax = fig.add_subplot(gs[0,figno])
+    aximg = ax.imshow(result[sliceno])
+    ax.set_title('iter={}, slice {}'.format(fista.iteration, sliceno))
+
+    figno += 1
+    sliceno += 10
+    # first graph
+    ax = fig.add_subplot(gs[0,figno])
+    aximg = ax.imshow(result[sliceno])
+    ax.set_title('iter={}, slice {}'.format(fista.iteration, sliceno))
 
 
 
-# colorbar
-axes = fig.add_subplot(gs[0,figno+1])
-plt.colorbar(aximg, cax=axes)
+    # colorbar
+    axes = fig.add_subplot(gs[0,figno+1])
+    plt.colorbar(aximg, cax=axes)
 
-# adjust spacing between plots
-fig.tight_layout() 
-#plt.subplots_adjust(wspace=0.4)
-plt.show()
+    # adjust spacing between plots
+    fig.tight_layout() 
+    #plt.subplots_adjust(wspace=0.4)
+    plt.show()
 
-fname = "FISTA_reg_L{}_it{}".format(fidelity.L, fista.iteration)
-saveto = os.path.join(os.getcwd(), fname)
+    fname = "FISTA_reg_L{}_it{}".format(fidelity.L, fista.iteration)
+    saveto = os.path.join(os.getcwd(), fname)
 #plt.savefig(saveto)
 
 #%%
