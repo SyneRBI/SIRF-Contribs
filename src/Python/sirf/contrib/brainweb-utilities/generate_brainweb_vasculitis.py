@@ -4,8 +4,9 @@ Usage:
   generate_brainweb_vasculitis [--help | options]
 
 Options:
-  -i <path>, --out_im=<path>  output image filename prefix [default: im]
+  -i <path>, --out_im=<path>     output image filename prefix [default: im]
   --save-labels               save label images for all non-zero structures and a total background
+  --brainweb-cache=<path>       filename prefix for saving brainweb data [default: brainweb_labels]
   --voxel-size=<val>          string specifying the output voxel size (mMR | MR | brainweb) [default: mMR]
   --iIL=<val>                 inner intensity (left) [default: 1]
   --iIR=<val>                 inner intensity (right) [default: 2]
@@ -15,6 +16,8 @@ Options:
   --iRR=<val>                 inner radius (right) [default: 3]
   --oRL=<val>                 outer radius (left) [default: 5]
   --oRR=<val>                 outer radius (right) [default: 5]
+  --lL=<val>                  vessel length (left) [default: 40]
+  --lR=<val>                  vessel length (right) [default: 40]
   --cL=<val>                  centre (left) [default: -80]
   --cR=<val>                  centre (left) [default: 80]
 """
@@ -23,6 +26,7 @@ Options:
 # Copyright 2020 University College London.
 #
 # author Richard Brown
+# author Kris Thielemans
 
 # This is software developed for the Collaborative Computational
 # Project in Synergistic Image Reconstruction for Biomedical Imaging
@@ -38,22 +42,24 @@ Options:
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from numba import jit
+import MINC
 import brainweb
 import numpy as np
 from tqdm.auto import tqdm
 import sirf.STIR as pet
 import sirf.Reg as reg
-from sirf.Utilities import examples_data_path
+#from sirf.Utilities import examples_data_path
 from docopt import docopt
+import os
 import nibabel
 
-__version__ = '0.1.0'
+__version__ = '0.2.0'
 args = docopt(__doc__, version=__version__)
-
+print(args)
 # Parse input arguments
 out_prefix = args['--out_im']
 save_labels = args['--save-labels']
+brainweb_label_prefix = args['--brainweb-cache']
 outres=args['--voxel-size']
 iIL = float(args['--iIL'])
 iIR = float(args['--iIR'])
@@ -63,15 +69,34 @@ iRL = float(args['--iRL'])
 iRR = float(args['--iRR'])
 oRL = float(args['--oRL'])
 oRR = float(args['--oRR'])
+lL = float(args['--lL'])
+lR = float(args['--lR'])
 cL = float(args['--cL'])
 cR = float(args['--cR'])
 
-
-def get_brainweb_image(outres=outres, PetClass=brainweb.FDG, save_labels=False):
+def get_brainweb_labels():
     """Get brainweb image."""
     fname, url = sorted(brainweb.utils.LINKS.items())[0]
-    files = brainweb.get_file(fname, url, ".")
+    brainweb.get_file(fname, url, ".")
     data = brainweb.load_file(fname)
+    return data
+
+def get_brainweb_labels_as_pet():
+    data=get_brainweb_labels()
+    res=getattr(brainweb.Res,'brainweb')
+    new_shape=(data.shape[0],512,512)   
+    padLR, padR = divmod((np.array(new_shape) - data.shape), 2)
+    data = np.pad(data, [(p, p + r) for (p, r)
+                         in zip(padLR.astype(int), padR.astype(int))],
+                       mode="constant")
+    #data = np.flip(data, 0)
+    return get_as_pet_im(data,res)
+
+def get_brainweb_image(outres=outres, PetClass=brainweb.FDG, save_labels=False):
+    """Get brainweb image. (no longer used)"""
+    fname, url = sorted(brainweb.utils.LINKS.items())[0]
+    brainweb.get_file(fname, url, ".")
+    #data = brainweb.load_file(fname)
 
     brainweb.seed(1337)
 
@@ -105,31 +130,29 @@ def crop_and_orient(im, res):
 
 def get_as_pet_im(arr, res):
     """Get as PET image."""
-    # We'll need a template sinogram
-    #mMR_template_sino = \
-    #    examples_data_path('PET') + "/mMR/mMR_template_span11.hs"
-    #templ_sino = pet.AcquisitionData(mMR_template_sino)
-    #im = pet.ImageData(templ_sino)
     im = pet.ImageData()
     im.initialise(arr.shape, tuple(res))
     im.fill(arr)
     return im
-
 
 def save_nii(im, fname):
     """Save as nii."""
     reg.ImageData(im).write(fname)
 
 
-def get_cylinder_in_im(im_in, length, radius, intensity, tm=None):
+def get_cylinder_in_im(im_in, length, radius, origin, intensity, tm=None, num_samples=3):
     """Get an image containing a cylinder."""
     cylinder = pet.EllipticCylinder()
     cylinder.set_length(length)
-    cylinder.set_origin([0, 0, 0])
     cylinder.set_radii([radius, radius])
+    geo = im_in.get_geometrical_info()
+    centre = (np.array(geo.get_offset()) +
+              (np.array(geo.get_size())-1)*np.array(geo.get_spacing())/2.)
+    # warning: CURRENTLY NEED TO REVERSE
+    cylinder.set_origin(tuple(np.array(origin) + centre[::-1]))
     im = im_in.clone()
     im.fill(0)
-    im.add_shape(cylinder, intensity)
+    im.add_shape(cylinder, intensity, num_samples)
     if tm:
         # resample
         res = reg.NiftyResample()
@@ -141,33 +164,10 @@ def get_cylinder_in_im(im_in, length, radius, intensity, tm=None):
     return im
 
 
-@jit(nopython=True)
-def loop_and_replace(arr_out, arr_to_add):
-    """JIT loop."""
-    arr_shape = arr_out.shape
-    arr_to_add_thresh = 0.01 * arr_to_add.max()
-    for ix, iy, iz in np.ndindex(arr_shape):
-        arr_out[ix, iy, iz] = max(arr_out[ix, iy, iz], arr_to_add[ix, iy, iz])
-        if abs(arr_to_add[ix, iy, iz]) > arr_to_add_thresh:
-            arr_out[ix, iy, iz] = arr_to_add[ix, iy, iz]
-
-
-def replace_if_greater(out, to_add):
-    """To add."""
-    out_arr = out.as_array()
-    to_add_arr = to_add.as_array()
-    out_arr = np.maximum(out_arr, to_add_arr)
-    # loop_and_replace(out_arr, to_add_arr)
-    out.fill(out_arr)
-
 def weighted_add(out, values, weights):
-    """set out to out*(1-sum(weights)) + sum(weights*values).
-    
-    Currently only works for SIRF/CIL objects
-    """
-    zero=out.allocate()
-    out *= (out.allocate(1)-sum(weights, zero))
-    out += sum([weights[i]*values[i] for i in range(len(values))], zero)
+    """set out to out + sum(weights*values) """
+    for (w,v) in zip (weights, values):
+        out += w*v
 
 def make_4d_nifti(out_filename, all_filenames):
     # first read one to get geometry ok
@@ -175,112 +175,144 @@ def make_4d_nifti(out_filename, all_filenames):
     all_data = ( nibabel.load(f).get_fdata() for f in all_filenames)
     nii = nibabel.Nifti1Image(np.array(list(all_data)), template.affine)
     nibabel.save(nii, out_filename)
+    
+def create_vessel(template,
+                  inner_cylinder_radius, outer_cylinder_radius,
+                  vessel_length,
+                  distance_from_centre):
+    """ returns a tuple (inner_cylinder, outer_cylinder) """
+    #tm = reg.AffineTransformation(np_tm)
+
+    outer_cylinder = get_cylinder_in_im(
+        template, length=vessel_length, #tm=tm,
+        radius=outer_cylinder_radius,
+        origin=(0,0,distance_from_centre),
+        intensity=1)
+    inner_cylinder = get_cylinder_in_im(
+        template, length=vessel_length, #tm=tm,
+        radius=inner_cylinder_radius,
+        origin=(0,0,distance_from_centre),
+        intensity=1)
+    outer_cylinder -= inner_cylinder
+    return (inner_cylinder, outer_cylinder)
+    
+def brainweb_labels_to_4d(brainweb_labels_3d, labels = brainweb.Act.all_labels, output_prefix = ""):
+    """ takes a 3D image with brainweb labels and returns them as a list of 3D masks """
+    all = []
+    # set empty first
+    l = []
+    for label in tqdm(labels):
+        filename = output_prefix + label + ".nii"
+        if (output_prefix and os.path.isfile(filename)):
+            print("Reading " + filename)
+            l = pet.ImageData(filename)
+        else:
+            value = getattr(brainweb.Act, label)
+            if (not l):
+                l = brainweb_labels_3d.allocate(0)
+                brainweb_labels_array = brainweb_labels_3d.as_array()
+
+            l.fill(brainweb_labels_array == value)
+            if (output_prefix):
+                save_nii(l, filename)
+
+        all.append(l)
+
+    return all
+
+def get_brainweb_image_from_labels(all_label_images, act=brainweb.FDG):
+    all_values = [ getattr(act, l) for l in act.attrs]
+    if (len(all_label_images) != len(all_values)):
+        raise Exception("get_brainweb_image_from_labels: lengths do not match")
+    print("Original activity values in brainweb regions:", all_values)
+    out = all_label_images[0].clone() * all_values[0]
+    weighted_add(out, all_values[1:], all_label_images[1:])
+    return out
 
 def main():
     """Do main function."""
 
-    # Get brainweb image
-    images = get_brainweb_image(outres=outres, save_labels=save_labels)
-    FDG_arr = images[0]
-    res = images[1]
-    if save_labels:
-        labels = images[2]
-        label_names = images[3]
-    
-
-    # Crop and flip component for correct orientation
-    FDG_arr = crop_and_orient(FDG_arr, res)
-
-    # Convert numpy array to STIR image
-    FDG = get_as_pet_im(FDG_arr, res)
-
-    # rescale to SUV
-    FDG *= 5 / np.max(FDG.as_array())
-
-    # Save unmodified image
-    save_nii(FDG, out_prefix + "_original")
-
     # Parameters
-    side = ('right', 'left')
+    side = ('left', 'right')
     distance_from_centre = (cL, cR)
     outer_cylinder_radius = (oRL, oRR)
     inner_cylinder_radius = (iRL, iRR)
+    vessel_length = (lL, lR)
     outer_cylinder_intensity = (oIL, oIR)
     inner_cylinder_intensity = (iIL, iIR)
 
-    out = FDG.clone()
-    label_all_vessels = FDG.allocate(0)
+    print("read/construct original segmentations (as 3d)")
+    brainweb_labels_filename = brainweb_label_prefix + ".nii";
+    if (not os.path.isfile(brainweb_labels_filename)):
+        bw=get_brainweb_labels_as_pet()
+        save_nii(bw, brainweb_labels_filename)
+    else:
+        bw=pet.ImageData(brainweb_labels_filename)
+
+    print("convert to 4D")
+    all_labels = brainweb.FDG.attrs
+    all_label_images = brainweb_labels_to_4d(bw, all_labels, brainweb_label_prefix + "_")
+
+    out = bw # reuse the variable, dangerous, but saves a bit of memory
+
+    print("create vessels")
     all_vessels = []
-    all_vessel_filenames = []
-    for i in range(2):
+    all_vessel_values = []
+    all_vessel_labels = []
+    for i in range(1):
+        print("... vessel " + str(i+1))
+        inner_cylinder, outer_cylinder = create_vessel(out,
+                                                       inner_cylinder_radius[i],
+                                                       outer_cylinder_radius[i],
+                                                       vessel_length[i],
+                                                       distance_from_centre[i])
+        all_vessels.append(outer_cylinder)
+        all_vessel_values.append(outer_cylinder_intensity[i])
+        all_vessel_labels.append("outer_cylinder" + str(i))
+        all_vessels.append(inner_cylinder)
+        all_vessel_values.append(inner_cylinder_intensity[i])
+        all_vessel_labels.append("inner_cylinder" + str(i))
 
-        print("Creating " + side[i] + " temporal artery..." +
-              "\n\tInner radius: " + str(inner_cylinder_radius[i]) +
-              "\n\tOuter radius: " + str(outer_cylinder_radius[i]) +
-              "\n\tInner intensity: " + str(inner_cylinder_intensity[i]) +
-              "\n\tOuter intensity: " + str(outer_cylinder_intensity[i]) +
-              "\n\tDistance from centre: " + str(distance_from_centre[i]))
+    del inner_cylinder
+    del outer_cylinder
+        
+    print("adjust brainweb labels to exclude vessels")
+    one_minus_all_vessels_summed = all_vessels[0].allocate(1)
+    weighted_add(one_minus_all_vessels_summed, -np.ones(len(all_vessels)), all_vessels)
+    
+    for l in all_label_images:
+        l *= one_minus_all_vessels_summed
 
-        # TODO remove hard-coded 150
-        np_tm = np.array([[1, 0, 0, distance_from_centre[i]],
-                         [0, 0, 1, 150],
-                         [0, 1, 0, 0],
-                         [0, 0, 0, 1]])
-        tm = reg.AffineTransformation(np_tm)
+    del one_minus_all_vessels_summed
 
-        outer_cylinder = get_cylinder_in_im(
-            FDG, length=40, tm=tm,
-            radius=outer_cylinder_radius[i],
-            intensity=1
-            )
-        inner_cylinder = get_cylinder_in_im(
-            FDG, length=40, tm=tm,
-            radius=inner_cylinder_radius[i],
-            intensity=1
-            )
-        label_all_vessels += outer_cylinder
-        outer_cylinder -= inner_cylinder
-        if save_labels:
-            all_vessels.append(outer_cylinder)
-            all_vessels.append(inner_cylinder)
-            filename = out_prefix + "_label_outer_cylinder" + str(i)
-            save_nii(outer_cylinder, filename)
-            all_vessel_filenames.append(filename + ".nii")
-            filename = out_prefix + "_label_inner_cylinder" + str(i)
-            save_nii(inner_cylinder, filename)
-            all_vessel_filenames.append(filename + ".nii")
-
-        weighted_add(out, [outer_cylinder_intensity[i], inner_cylinder_intensity[i]], [outer_cylinder, inner_cylinder])
+    print("construct image")
+    out = get_brainweb_image_from_labels(all_label_images, brainweb.FDG)
+    # rescale to SUV
+    out *= 5 / np.max(out.as_array())
+    # add in vessels
+    weighted_add(out, all_vessel_values, all_vessels)
 
     save_nii(out, out_prefix)
 
     if save_labels:
-        label_all_vessels_array = label_all_vessels.as_array()
-        num_labels = labels.shape[0] + 1 + 2*2 # background + 4 vessel regions
-        #all_labels = np.zeros(label_all_vessels_array.shape + (num_labels,), dtype='float32')
+        print("saving actual labels")
+        all_label_images += all_vessels
+        all_labels += all_vessel_labels
         all_label_filenames = []
-        # initialise background as everything except the vessels. we'll then subtract the rest as we go along
-        total_background = label_all_vessels.allocate(1) - label_all_vessels
+        # initialise background as everything. we'll then subtract the rest as we go along
+        total_background = all_label_images[0].allocate(1)
 
-        for i in range(labels.shape[0]):
-            array = crop_and_orient(labels[i,:,:,:], res)
-            # exclude temporal vessels
-            array *= (1-label_all_vessels_array)
-            this_label = get_as_pet_im(array, res)
-            this_filename = out_prefix + "_label" +str(i) + "_" + label_names[i]
-            save_nii(this_label, this_filename)
-            all_label_filenames.append(this_filename + ".nii")
-            #all_labels[i, :, :, :] = this_label.as_array()
-            total_background -= this_label
+        for i in range(len(all_labels)):
+            this_label_image = all_label_images[i]
+            this_filename = out_prefix + "_label" +str(i) + "_" + all_labels[i] + ".nii"
+            save_nii(this_label_image, this_filename)
+            all_label_filenames.append(this_filename)
+            total_background -= this_label_image
 
-        # store vessels and background in the last 5
-        #all_labels[-5:-1, :, :, :] = np.array(list(v.as_array() for v in all_vessels))
-        #all_labels[-1, :, :, :] = total_background.as_array()
-        all_label_filenames += all_vessel_filenames
-
-        this_filename = out_prefix + "_label_everything_else"
+        # store background
+        this_filename = out_prefix + "_label" +str(len(all_labels)) + "_everything_else.nii"
         save_nii(total_background, this_filename)
-        all_label_filenames.append(this_filename + ".nii")
+        all_label_filenames.append(this_filename)
 
         # now make one 4D nifti
         make_4d_nifti(out_prefix + "_alllabels.nii", all_label_filenames)
