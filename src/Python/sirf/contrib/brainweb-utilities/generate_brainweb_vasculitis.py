@@ -42,7 +42,7 @@ Options:
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import MINC
+#import MINC
 import brainweb
 import numpy as np
 from tqdm.auto import tqdm
@@ -53,7 +53,7 @@ from docopt import docopt
 import os
 import nibabel
 
-__version__ = '0.2.0'
+__version__ = '0.3.0'
 args = docopt(__doc__, version=__version__)
 print(args)
 # Parse input arguments
