@@ -348,8 +348,11 @@ def main():
         save_nii(total_background, this_filename)
         all_label_filenames.append(this_filename)
 
-        # now make one 4D nifti
-        make_4d_nifti(out_prefix + "_alllabels.nii", all_label_filenames)
-
+        # now make one 4D nifti ( this fails for me)
+        #make_4d_nifti(out_prefix + "_alllabels.nii", all_label_filenames)
+        # but also write all label-filenames in a text-file
+        target = open(out_prefix + "_alllabels.txt", 'w')
+        target.writelines((l+os.linesep  for l in all_label_filenames))
+        target.close()
 if __name__ == "__main__":
     main()
