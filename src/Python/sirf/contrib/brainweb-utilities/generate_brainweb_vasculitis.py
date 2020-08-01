@@ -291,7 +291,7 @@ def main():
     all_vessels = []
     all_vessel_values = []
     all_vessel_labels = []
-    for i in range(1):
+    for i in range(len(inner_cylinder_intensity)):
         print("... vessel " + str(i+1))
         inner_cylinder, outer_cylinder = create_vessel(out,
                                                        inner_cylinder_radius[i],
@@ -309,6 +309,8 @@ def main():
     del outer_cylinder
         
     print("adjust brainweb labels to exclude vessels")
+    # vessels will contribute fractionally to some voxels, so we need to take that fraction away
+    # we therefore multiply the original maps with (1-sum(all_vessels))
     one_minus_all_vessels_summed = all_vessels[0].allocate(1)
     weighted_add(one_minus_all_vessels_summed, -np.ones(len(all_vessels)), all_vessels)
     
