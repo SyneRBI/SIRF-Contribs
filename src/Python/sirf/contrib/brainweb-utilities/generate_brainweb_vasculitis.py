@@ -169,6 +169,29 @@ def weighted_add(out, values, weights):
     for (w,v) in zip (weights, values):
         out += w*v
 
+def zoom_image(im, new_voxel_size):
+    """
+    returns an image with new voxel sizes
+
+    It uses the 'preserve_values' option of sirf.STIR.ImageData.zoom_image (appropriate for probabilistic labels)
+
+    This uses internal STIR knowledge such that the zoomed image still has the same STIR offset as the input.
+    This is only important once using the image for forward projection etc
+    """
+    geo=im.get_geometrical_info()
+    # warning: need to revert these at present
+    voxel_size = np.array(geo.get_spacing()[::-1])
+    size = np.array(geo.get_size()[::-1])
+    zooms = voxel_size / new_voxel_size
+    new_size = np.array(np.ceil(size * zooms), 'int')
+    # make odd-sizes
+    new_size += 1 - (new_size%2)
+    # internal STIR calculations:
+    STIR_min_ind = np.array((0,-(size[1]//2), -(size[2]//2)))
+    new_STIR_min_ind = np.array((0,-(new_size[1]//2), -(new_size[2]//2)))
+    STIR_middle_shift=voxel_size*(2*STIR_min_ind + size - 1)/2. - new_voxel_size*(2*new_STIR_min_ind +  new_size-1)/2.
+    return im.zoom_image(zooms=tuple(zooms), offsets_in_mm=tuple(-STIR_middle_shift), size=tuple(new_size), scaling='preserve_values')
+
 def make_4d_nifti(out_filename, all_filenames):
     # first read one to get geometry ok
     template = nibabel.load(all_filenames[0])
@@ -253,7 +276,16 @@ def main():
     all_labels = brainweb.FDG.attrs
     all_label_images = brainweb_labels_to_4d(bw, all_labels, brainweb_label_prefix + "_")
 
-    out = bw # reuse the variable, dangerous, but saves a bit of memory
+
+    if (outres != "brainweb"):
+        new_voxel_size = getattr(brainweb.Res, outres)
+        for i in range(len(all_label_images)):
+            all_label_images[i] = zoom_image(all_label_images[i], new_voxel_size)
+
+        out = all_label_images[0].allocate()
+        out.get_geometrical_info().print_info()
+    else:
+        out = bw # reuse the variable, dangerous, but saves a bit of memory
 
     print("create vessels")
     all_vessels = []
