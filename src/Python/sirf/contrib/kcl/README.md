@@ -1,0 +1,1 @@
+de Pierro, Bowsher, etc. priors contributed by KCL researchers at our second hackathon with a focus on porting synergistic algorithms to SIRF - https://www.ccpsynerbi.ac.uk/node/162.
