@@ -7,7 +7,6 @@ Please add your contributions as a pull request, with the new python code locate
 
 ```
 from sirf.contrib import kcl
-
 ```
 
 # Current contents
