@@ -10,13 +10,19 @@ The script is located here: [MR\_recon\_file.py](./path_to_MR_recon.py)
 - The results of this script are given in Section 3a of the publication.
 
 ## PET MCIR
-The script is located here: [PET\_recon\_file.py](./path_to_MR_recon.py)
+The script is located here: [PET\_recon\_file.py](./PET_recon_file.py)
 
 - PET MCIR using PDHG and SPDHG algorithms. For SPDHG, the subsetting takes place over the motion gates, although an untested implementation of subsetting over the views is also included. The results of this script is given in Section 3b of the publication.
 
 ## Code dependencies
 
 At the time of writing, these scripts used some features that were not quite in a finalised state such that they could be incorporated into the main branches of the SIRF and CIL repositories. We hope that over time, these will be merged in, simplifying the following steps somewhat.
+
+### PET 
+
+  - SIRF: https://github.com/SyneRBI/SIRF/tree/pet_am_subset which adding functionality only for subsetting (that we are not using) and it is in sync with SIRF master at https://github.com/SyneRBI/SIRF/commit/83ed3526b15ee67b076d022252a5ed3ee12a1e05 
+  - CIL: https://github.com/vais-ral/CCPi-Framework/commit/c6cef165f0c9689640ce986e6720281e876d7ffb plan here is to tag this commit as 20.11.1
+  - SIRF-SuperBuild: https://github.com/SyneRBI/SIRF-SuperBuild/tree/update_cil_2011 Gadgetron is not built.
 
 The best bet is to checkout a commit of the SIRF-SuperBuild that was used at the time of writing, as this will install as many dependencies as possible with matching versions that were used. This can be done with:
 
