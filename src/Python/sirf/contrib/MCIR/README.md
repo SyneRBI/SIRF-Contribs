@@ -18,12 +18,6 @@ The script is located here: [PET\_recon\_file.py](./PET_recon_file.py)
 
 At the time of writing, these scripts used some features that were not quite in a finalised state such that they could be incorporated into the main branches of the SIRF and CIL repositories. We hope that over time, these will be merged in, simplifying the following steps somewhat.
 
-### PET 
-
-  - SIRF: https://github.com/SyneRBI/SIRF/tree/pet_am_subset which adding functionality only for subsetting (that we are not using) and it is in sync with SIRF master at https://github.com/SyneRBI/SIRF/commit/83ed3526b15ee67b076d022252a5ed3ee12a1e05 
-  - CIL: https://github.com/vais-ral/CCPi-Framework/commit/c6cef165f0c9689640ce986e6720281e876d7ffb plan here is to tag this commit as 20.11.1
-  - SIRF-SuperBuild: https://github.com/SyneRBI/SIRF-SuperBuild/tree/update_cil_2011 Gadgetron is not built.
-
 The best bet is to checkout a commit of the SIRF-SuperBuild that was used at the time of writing, as this will install as many dependencies as possible with matching versions that were used. This can be done with:
 
 ```
@@ -38,10 +32,16 @@ make
 
 **N.B.**: Unfortunately, there is no guarantee that this will work, as we cannot guarantee that old versions of SIRF's dependencies will successfully build on newer versions of operating systems.
 
+
+### PET dependencies
+
+  - SIRF branch [pet\_am\_subset](https://github.com/SyneRBI/SIRF/tree/pet_am_subset) – adds functionality for projecting a subset of views. This functionality is not currently used in the MCIR process, so perhaps the current `master` branch would work.
+  - CIL tag [c6cef16](https://github.com/vais-ral/CCPi-Framework/commit/c6cef165f0c9689640ce986e6720281e876d7ffb): we plan to tag this commit as 20.11.1.
+  - SIRF-SuperBuild branch [update\_cil\_2011](https://github.com/SyneRBI/SIRF-SuperBuild/tree/update_cil_2011): Gadgetron is not built.
+
 ### MR dependencies
 
 With the SuperBuild successfully installed, the MR code requires the current branches to be checked out:
 
-### MR dependencies
-
-With the SuperBuild successfully installed, the PET code requires the current branches to be checked out:
+- SIRF branch [rpe-encoding](https://github.com/SyneRBI/SIRF/tree/rpe-encoding): enables handling of non-Cartesian k-space data.
+- CIL tag [20.09](https://github.com/vais-ral/CCPi-Framework/releases/tag/v20.09)
