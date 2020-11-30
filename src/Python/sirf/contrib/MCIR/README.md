@@ -44,4 +44,4 @@ make
 With the SuperBuild successfully installed, the MR code requires the current branches to be checked out:
 
 - SIRF branch [rpe-encoding](https://github.com/SyneRBI/SIRF/tree/rpe-encoding): enables handling of non-Cartesian k-space data.
-- CIL tag [20.09](https://github.com/vais-ral/CCPi-Framework/releases/tag/v20.09)
+- CIL tag [20.04](https://github.com/vais-ral/CCPi-Framework/releases/tag/v20.04)
