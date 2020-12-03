@@ -36,7 +36,7 @@ make
 ### PET dependencies
 
   - SIRF branch [pet\_am\_subset](https://github.com/SyneRBI/SIRF/tree/pet_am_subset) – adds functionality for projecting a subset of views. This functionality is not currently used in the MCIR process, so perhaps the current `master` branch would work.
-  - CIL tag [c6cef16](https://github.com/vais-ral/CCPi-Framework/commit/c6cef165f0c9689640ce986e6720281e876d7ffb): we plan to tag this commit as 20.11.1.
+  - CIL tag [20.11.1](https://github.com/vais-ral/CCPi-Framework/releases/tag/v20.11.1) 
   - SIRF-SuperBuild branch [update\_cil\_2011](https://github.com/SyneRBI/SIRF-SuperBuild/tree/update_cil_2011): Gadgetron is not built.
 
 ### MR dependencies
@@ -44,4 +44,4 @@ make
 With the SuperBuild successfully installed, the MR code requires the current branches to be checked out:
 
 - SIRF branch [rpe-encoding](https://github.com/SyneRBI/SIRF/tree/rpe-encoding): enables handling of non-Cartesian k-space data.
-- CIL tag [20.09](https://github.com/vais-ral/CCPi-Framework/releases/tag/v20.09)
+- CIL tag [20.04](https://github.com/vais-ral/CCPi-Framework/releases/tag/v20.04)
