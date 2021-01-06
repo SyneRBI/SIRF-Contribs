@@ -308,7 +308,7 @@ def pre_process_sinos(sinos_raw, num_ms):
         if args['--numViewsToCombine']:
             views_to_combine = int(args['--numViewsToCombine'])
         if segs_to_combine * views_to_combine > 1:
-            sinos[ind] = sinos[ind].rebin(segs_to_combine, views_to_combine)
+            sinos[ind] = sinos[ind].rebin(segs_to_combine, views_to_combine, do_normalisation=False)
             # only print first time
             if ind == 0:
                 print("Rebinned sino dimensions: {sinos[ind].dimensions()}")
