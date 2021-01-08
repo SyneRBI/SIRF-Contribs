@@ -35,7 +35,7 @@ make
 
 ### PET dependencies
 
-  - SIRF branch [pet\_am\_subset](https://github.com/SyneRBI/SIRF/tree/pet_am_subset) – adds functionality for projecting a subset of views. This functionality is not currently used in the MCIR process, so perhaps the current `master` branch would work.
+  - SIRF https://github.com/SyneRBI/SIRF/commit/5ca753d8959b210aae9809086b115efd3166b7fd – adds functionality for projecting a subset of views. This functionality is not currently used in the MCIR process, so perhaps the current `master` branch would work.
   - CIL tag [20.11.1](https://github.com/vais-ral/CCPi-Framework/releases/tag/v20.11.1) 
   - SIRF-SuperBuild branch [update\_cil\_2011](https://github.com/SyneRBI/SIRF-SuperBuild/tree/update_cil_2011): Gadgetron is not built.
   - STIR tag `release_4`
