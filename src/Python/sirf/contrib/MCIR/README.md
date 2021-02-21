@@ -30,6 +30,8 @@ cmake ../SIRF-SuperBuild
 make
 ```
 
+As per the rest of SIRF, this code should work all versions of python3.x, which has CI/CD for various python versions.
+
 **N.B.**: Unfortunately, there is no guarantee that this will work, as we cannot guarantee that old versions of SIRF's dependencies will successfully build on newer versions of operating systems.
 
 
