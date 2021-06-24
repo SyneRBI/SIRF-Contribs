@@ -1,6 +1,10 @@
 # MCIR
 
-The code in this folder was used for the publication on using SIRF for PET/MR MCIR (DOI).
+The code in this folder was used for the publication on using SIRF for PET/MR MCIR (DOI TBC):
+
+*Motion estimation and correction for simultaneous PET/MR using SIRF*<br>
+Richard Brown, Christoph Kolbitsch, Claire Delplancke, Evangelos Papoutsellis, Johannes Mayer, Evgueni Ovtchinnikov, Edoardo Pasca, Radhouene Neji, Casper da Costa-Luis, Ashley G. Gillman, Matthias J. Ehrhardt, Jamie McClelland, Bjoern Eiben, and Kris Thielemans<br>
+Special issue on Synergistic Image Reconstruction (Part 2), Philosophical Transactions of the Royal Society A
 
 It contains two main scripts, detailed below, for the MR and PET MCIR reconstructions, respectively.
 
