@@ -23,7 +23,7 @@ Options:
 """
 
 # CCP SyneRBI Synergistic Image Reconstruction Framework (SIRF)
-# Copyright 2020 University College London.
+# Copyright 2020, 2022 University College London.
 #
 # author Richard Brown
 # author Kris Thielemans
@@ -44,6 +44,13 @@ Options:
 
 #import MINC
 import brainweb
+
+# fix for wrong label values in brainweb result, see https://github.com/casperdcl/brainweb/issues/18
+brainweb.Act.marrow=177
+brainweb.Act.dura=161
+brainweb.Act.aroundFat=145
+
+
 import numpy as np
 from tqdm.auto import tqdm
 import sirf.STIR as pet
@@ -224,17 +231,18 @@ def brainweb_labels_to_4d(brainweb_labels_3d, labels = brainweb.Act.all_labels, 
     all = []
     # set empty first
     l = []
+    brainweb_labels_array = brainweb_labels_3d.as_array()
     for label in tqdm(labels):
         filename = output_prefix + label + ".nii"
+        value = getattr(brainweb.Act, label)
+        #print("Brainweb value:", value)
         if (output_prefix and os.path.isfile(filename)):
             print("Reading " + filename)
             l = pet.ImageData(filename)
         else:
             value = getattr(brainweb.Act, label)
-            if (not l):
-                l = brainweb_labels_3d.allocate(0)
-                brainweb_labels_array = brainweb_labels_3d.as_array()
 
+            l = brainweb_labels_3d.allocate()
             l.fill(brainweb_labels_array == value)
             if (output_prefix):
                 save_nii(l, filename)
@@ -248,6 +256,22 @@ def get_brainweb_image_from_labels(all_label_images, act=brainweb.FDG):
     if (len(all_label_images) != len(all_values)):
         raise Exception("get_brainweb_image_from_labels: lengths do not match")
     print("Original activity values in brainweb regions:", all_values)
+    out = all_label_images[0].clone() * all_values[0]
+    weighted_add(out, all_values[1:], all_label_images[1:])
+    return out
+
+# copy of the above with tweaks to get it to work for Mu
+# can probably be simplified
+def get_mu_image_from_labels(all_label_images, act=brainweb.Mu):
+    bone_value = getattr(act, "bone")
+    tissue_value = getattr(act, "tissue")
+    # horrible trick to get mu-values correct.
+    all_values = [0, tissue_value, tissue_value, tissue_value, tissue_value, tissue_value, tissue_value,
+       bone_value, tissue_value, tissue_value, bone_value, bone_value]
+    if (len(all_label_images) != len(all_values)):
+        raise Exception("get_mu_image_from_labels: lengths do not match")
+
+    print("Original mu values in brainweb regions:", all_values)
     out = all_label_images[0].clone() * all_values[0]
     weighted_add(out, all_values[1:], all_label_images[1:])
     return out
@@ -305,26 +329,35 @@ def main():
         all_vessel_values.append(inner_cylinder_intensity[i])
         all_vessel_labels.append("inner_cylinder" + str(i))
 
-    del inner_cylinder
-    del outer_cylinder
-        
-    print("adjust brainweb labels to exclude vessels")
-    # vessels will contribute fractionally to some voxels, so we need to take that fraction away
-    # we therefore multiply the original maps with (1-sum(all_vessels))
-    one_minus_all_vessels_summed = all_vessels[0].allocate(1)
-    weighted_add(one_minus_all_vessels_summed, -np.ones(len(all_vessels)), all_vessels)
-    
-    for l in all_label_images:
-        l *= one_minus_all_vessels_summed
+        del inner_cylinder
+        del outer_cylinder
 
-    del one_minus_all_vessels_summed
+    if (len(all_vessels) > 0):
+        print("adjust brainweb labels to exclude vessels")
+        # vessels will contribute fractionally to some voxels, so we need to take that fraction away
+        # we therefore multiply the original maps with (1-sum(all_vessels))
+        one_minus_all_vessels_summed = all_vessels[0].allocate(1)
+        weighted_add(one_minus_all_vessels_summed, -np.ones(len(all_vessels)), all_vessels)
+    
+        for l in all_label_images:
+            l *= one_minus_all_vessels_summed
+
+        del one_minus_all_vessels_summed
+
+    print("construct mu-map")
+    # TODO check if we need separate label images, possibly not with overlap from emission below
+    mu_all_label_images = brainweb_labels_to_4d(bw, brainweb.Mu.all_labels, brainweb_label_prefix + "_")
+
+    out = get_mu_image_from_labels(mu_all_label_images, brainweb.Mu)
+    save_nii(out, 'MuMap')
 
     print("construct image")
     out = get_brainweb_image_from_labels(all_label_images, brainweb.FDG)
     # rescale to SUV
     out *= 5 / np.max(out.as_array())
-    # add in vessels
-    weighted_add(out, all_vessel_values, all_vessels)
+    if (len(all_vessels) > 0):
+        # add in vessels
+        weighted_add(out, all_vessel_values, all_vessels)
 
     save_nii(out, out_prefix)
 
