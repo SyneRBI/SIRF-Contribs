@@ -16,4 +16,5 @@ from sirf.contrib import kcl
 
 - [KCL priors](./src/Python/sirf/contrib/kcl) - de Pierro, Bowsher, etc. priors
 - [brainweb](./src/Python/sirf/contrib/brainweb-utilities) - preliminary script to create brainweb data with some extra features.
+- [MCIR](./src/Python/sirf/contrib/MCIR) - scripts for the MR and PET MCIR reconstructions.
 - [Grappa_and_CIL](./src/notebooks/Grappa_and_CIL.ipynb) - notebook demonstrating CIL integration with SIRF, with the use case of a GRAPPA reconstruction of MR data.
