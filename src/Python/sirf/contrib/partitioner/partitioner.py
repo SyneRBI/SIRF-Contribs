@@ -3,7 +3,7 @@ import numpy
 import math 
 import sirf.STIR as pet
 
-def data_partition( prompts, background, multiplicative_factors,    num_batches, mode="sequential", seed=None, initial_image=None): 
+def data_partition( prompts, background, multiplicative_factors, num_batches, mode="sequential", seed=None, initial_image=None): 
         '''Partition the data into ``num_batches`` batches using the specified ``mode``.
         
 
@@ -107,6 +107,7 @@ def _partition_deterministic( prompts, background, multiplicative_factors, num_b
         multiplicative_factors_subset = multiplicative_factors.get_subset(partition_indices[i])
         
         sensitivity_factors = pet.AcquisitionSensitivityModel(multiplicative_factors_subset)
+        sensitivity_factors.set_up(multiplicative_factors_subset)
         acquisition_model = pet.AcquisitionModelUsingParallelproj()
         acquisition_model.set_acquisition_sensitivity(sensitivity_factors)
         acquisition_model.set_background_term(background_subset)
@@ -115,10 +116,11 @@ def _partition_deterministic( prompts, background, multiplicative_factors, num_b
             acquisition_model.set_up(prompts_subset, initial_image)
 
         acquisition_models.append(acquisition_model)
-        prompts_subset.append(prompts_subset)
+        prompts_subsets.append(prompts_subset)
         
         objective_sirf = pet.make_Poisson_loglikelihood(prompts_subset,  acq_model = acquisition_model)
-        objective_sirf.set_up(initial_image)
+        if initial_image is not None:
+                objective_sirf.set_up(initial_image)
         objectives.append(objective_sirf)
 
 
@@ -166,7 +168,7 @@ def _partition_random_permutation( prompts, background, multiplicative_factor, n
     
     return _partition_deterministic(prompts, background, multiplicative_factor,views, num_batches, stagger=False, indices=indices, initial_image=initial_image)
 
-def _partition_indices(self, num_batches, indices, stagger=False):
+def _partition_indices(num_batches, indices, stagger=False):
         """Partition a list of indices into num_batches of indices.
         
         Parameters
@@ -184,7 +186,6 @@ def _partition_indices(self, num_batches, indices, stagger=False):
         list of list of int
             A list of batches of indices.
         """
-
         # Partition the indices into batches.
         if isinstance(indices, int):
             indices = list(range(indices))
