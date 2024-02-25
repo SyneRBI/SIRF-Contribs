@@ -1,2 +1,22 @@
+*.pyd
+*.pyc
+**/__pycache__/
+
 
 .DS_Store
+*.log
+
+# Common editor backups
+~$*
+*~
+*.bak
+\#*
+.#*
+
+
+# Ignore files created by Pycharm
+\.idea/
+
+# Ignore files created by VS Code
+.vscode/
+
