@@ -1,3 +1,12 @@
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Functions for partitioning sirf.STIR.ACquisitionData in subsets
+#
+# Authors: Margaret Duff and Kris Thielemans
+#
+# Copyright 2024 Science Technology Facilities Council
+# Copyright 2024 University College London
 
 import numpy
 import math 
@@ -30,8 +39,8 @@ def data_partition( prompts, background, multiplicative_factors, num_batches, mo
         seed : int, optional
             The seed to use for the random permutation. If not specified, the random number
             generator will not be seeded.
-        initial_image: Optional,  AquisitionData
-            If passed, the returned objectives and acquisition models will be set-up. If not, they will be passed uninitialised
+        initial_image: Optional,  ImageData
+            If passed, the returned objectives and acquisition models will be set-up. If not, you will have to do this yourself.
 
 
 
