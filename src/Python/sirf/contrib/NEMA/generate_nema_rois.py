@@ -49,12 +49,8 @@ import sirf.STIR  as pet
 
 # process command-line option
 
-
-def generate_nema_rois(data_output_path, sino_file, image_size_xy):
-     
-    acq_data = pet.AcquisitionData(sino_file)
-    initial_image =  acq_data.create_uniform_image(1.0, xy=image_size_xy)
-    image_size = initial_image.dimensions()
+def recon_from_sino(acq_data, initial_image):
+    
     # need to run a simple recon to register ROI with PET
     # using parallelproj
     acq_model = pet.AcquisitionModelUsingParallelproj()
@@ -78,8 +74,12 @@ def generate_nema_rois(data_output_path, sino_file, image_size_xy):
     recon.set_current_estimate(recon_im)
     # reconstruct
     recon.process()
-    osem_image = recon.get_output()
+    recon.get_output()
+    
+    return recon.get_output() 
 
+def construct_NEMA_spheres_and_save(acq_data,image_size):
+    
     R=114/2
     z=140
     angle_smallest=210
@@ -160,10 +160,7 @@ def generate_nema_rois(data_output_path, sino_file, image_size_xy):
 
     parfile=pet.get_STIR_examples_dir()+'/samples/stir_math_ITK_output_file_format.par'
 
-    osem_image.write_par(data_output_path+'osem.nii',parfile)
-    osem_nii=Reg.NiftiImageData3D(data_output_path+'osem.nii')
     image.write_par(data_output_path+'sphere.nii',parfile)
-    spheres_nii=Reg.NiftiImageData3D(data_output_path+'sphere.nii')
 
     #spheres to nifty
     image6.write_par(data_output_path+'sphere6.nii',parfile)
@@ -172,9 +169,16 @@ def generate_nema_rois(data_output_path, sino_file, image_size_xy):
     image3.write_par(data_output_path+'sphere3.nii',parfile)
     image2.write_par(data_output_path+'sphere2.nii',parfile)
     image1.write_par(data_output_path+'sphere1.nii',parfile)
-    sphere_nii= []
-    for i in range(1,6+1):
 
+def do_registration(recon_image):
+     
+    parfile=pet.get_STIR_examples_dir()+'/samples/stir_math_ITK_output_file_format.par'
+    recon_image.write_par(data_output_path+'recon.nii',parfile)
+    recon_nii=Reg.NiftiImageData3D(data_output_path+'recon.nii')
+    spheres_nii=Reg.NiftiImageData3D(data_output_path+'sphere.nii')
+    sphere_nii= []
+
+    for i in range(1,6+1):
         sphere_nii.append(Reg.NiftiImageData3D(data_output_path+'sphere'+str(i)+'.nii'))
 
     #now let's register
@@ -186,7 +190,7 @@ def generate_nema_rois(data_output_path, sino_file, image_size_xy):
     algo = Reg.NiftyAladinSym()
 
     # Set images
-    algo.set_reference_image(osem_nii)
+    algo.set_reference_image(recon_nii)
     algo.set_floating_image(spheres_nii)
     #set parameters
     algo.set_parameter('SetPerformRigid','1')
@@ -199,8 +203,14 @@ def generate_nema_rois(data_output_path, sino_file, image_size_xy):
     np.set_printoptions(precision=3,suppress=True)
     TM = algo.get_transformation_matrix_forward()
     print(TM.as_array())
+    return TM, reg_image, sphere_nii
 
-    #once we have the registration matrix we can the apply it to the sphere generation?
+def generate_nema_rois(recon_image):
+    
+    construct_NEMA_spheres_and_save(acq_data,image_size)
+    TM, reg_image, sphere_nii = do_registration(recon_image)    
+
+    #once we have the registration matrix we can then apply it to the sphere generation
     resampler = Reg.NiftyResample()
 
     # Make sure we know what the resampled image domain looks like (this can be the same as the image to resample)
@@ -239,5 +249,9 @@ if __name__ == '__main__':
         print('Warning: I am setting x and y size to 150 make sure your reconstructed image has the same dimension')
         xy_size=150
 
-    generate_nema_rois(data_output_path,sino_file,xy_size)
+    acq_data = pet.AcquisitionData(sino_file)
+    initial_image =  acq_data.create_uniform_image(1.0, xy=xy_size)
+    image_size = initial_image.dimensions()
+    recon_image = recon_from_sino(acq_data, initial_image)
+    generate_nema_rois(recon_image)
 
