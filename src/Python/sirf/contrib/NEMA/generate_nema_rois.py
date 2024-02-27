@@ -44,7 +44,6 @@ from sirf.Utilities import show_2D_array
 import sirf.Reg as Reg
 import math as m
 
-from sirf.Utilities import show_2D_array, examples_data_path
 import sirf.STIR  as pet
 
 def recon_from_sino(acq_data,image_size):
