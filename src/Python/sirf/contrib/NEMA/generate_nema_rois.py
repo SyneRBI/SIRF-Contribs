@@ -4,10 +4,11 @@ Usage:
   generate_nema_rois [--help | options]
 
 Options:
-  -s <file>, --sino=<file>     raw data file ( no default you need an input of a NEMA sinogram)
+  -s <file>, --sino=<file>     raw data file [default: no default you need an input of a NEMA sinogram]
+  -i <file>, --image=<file>              reconstructed image file if None the script runs a reconstruction
   -o <out_path>, --outpath=<out_path>     path to data files, defaults to current directory
                                subfolder of SIRF root folder
-  -xy <xy_size>, --xysize=<xy_size> optional size of image in x and y 
+  --xysize=<xy_size> optional size of image in x and y
 '''
 
 ## SyneRBI Synergistic Image Reconstruction Framework (SIRF)
@@ -63,7 +64,8 @@ def recon_from_sino(acq_data,image_size):
     recon.set_current_estimate(recon_im)
     # reconstruct
     recon.process()
-    
+    im=recon.get_output() 
+    im.write('ciao')
     return recon.get_output() 
 
 def construct_NEMA_spheres_and_save(image):
@@ -131,12 +133,12 @@ def construct_NEMA_spheres_and_save(image):
     # add the shape to the image
     image.add_shape(shape1, scale = 1)
 
-    image6 = acq_data.create_uniform_image(0, xy=int(image_size[1]))
-    image5 = acq_data.create_uniform_image(0, xy=int(image_size[1]))
-    image4 = acq_data.create_uniform_image(0, xy=int(image_size[1]))
-    image3 = acq_data.create_uniform_image(0, xy=int(image_size[1]))
-    image2 = acq_data.create_uniform_image(0, xy=int(image_size[1]))
-    image1 = acq_data.create_uniform_image(0, xy=int(image_size[1]))
+    image6 = image.get_uniform_copy(0)
+    image5 = image.get_uniform_copy(0)
+    image4 = image.get_uniform_copy(0)
+    image3 = image.get_uniform_copy(0)
+    image2 = image.get_uniform_copy(0)
+    image1 = image.get_uniform_copy(0)
 
 
     image6.add_shape(shape6, scale = 1)
@@ -230,18 +232,24 @@ if __name__ == '__main__':
             data_output_path =  './'
     prefix = data_output_path + '/'
 
-    sino_file = args['--sino']
-    if sino_file is None:
-        sys.exit('Missing the input sinogram as interfile')
-
+    
     xy_size = args['--xysize']
     if xy_size is None:
         print('Warning: Setting image xy size to 150. Make sure your reconstructed image has the same dimension as the xy_size')
         xy_size = 150
+        
+    recon_image_file = args['--image']
+    if recon_image_file is None:
 
-
-    acq_data = pet.AcquisitionData(sino_file)
-    initial_image =  acq_data.create_uniform_image(1.0, xy=xy_size)
-    recon_image = recon_from_sino(acq_data, initial_image)
+        sino_file = args['--sino']
+        if sino_file is None:
+            sys.exit('Missing the input sinogram as interfile')
+        else:
+            acq_data = pet.AcquisitionData(sino_file)
+            initial_image =  acq_data.create_uniform_image(1.0, xy=xy_size)
+            recon_image = recon_from_sino(acq_data, initial_image)
+    else:
+        recon_image=pet.ImageData(recon_image_file)
+        
     generate_nema_rois(recon_image)
 
