@@ -30,16 +30,8 @@ Options:
 __version__ = '0.1.0'
 
 
-import sirf
-import nibabel as nii
-import matplotlib.pyplot as plt
 import numpy as np
 import sys
-import os
-import pathlib
-from ast import literal_eval
-
-from sirf.Utilities import show_2D_array
 
 import sirf.Reg as Reg
 import math as m
