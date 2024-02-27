@@ -64,8 +64,6 @@ def recon_from_sino(acq_data,image_size):
     recon.set_current_estimate(recon_im)
     # reconstruct
     recon.process()
-    im=recon.get_output() 
-    im.write('ciao')
     return recon.get_output() 
 
 def construct_NEMA_spheres_and_save(image):
