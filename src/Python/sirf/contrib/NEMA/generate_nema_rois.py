@@ -242,7 +242,6 @@ if __name__ == '__main__':
 
     acq_data = pet.AcquisitionData(sino_file)
     initial_image =  acq_data.create_uniform_image(1.0, xy=xy_size)
-    image_size = initial_image.dimensions()
     recon_image = recon_from_sino(acq_data, initial_image)
     generate_nema_rois(recon_image)
 
