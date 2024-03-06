@@ -32,9 +32,6 @@ class BSREMSkeleton(Algorithm):
         self.subset = 0
         self.FOV_filter = STIR.TruncateToCylinderProcessor()
         self.configured = True
-        # store images here (not yet using callback)
-        self.images = [self.x.copy()]
-        
 
     def subset_sensitivity(self, subset_num):
         raise NotImplementedError
@@ -56,12 +53,21 @@ class BSREMSkeleton(Algorithm):
         # threshold to non-negative
         self.x.maximum(0, out=self.x)
         self.subset = (self.subset + 1) % self.num_subsets
-        # store images here (not yet using callback)
-        self.images.append(self.x.copy())
 
-    # next is needed for CIL 21.3, but we don't do any calculation to save time
     def update_objective(self):
-        self.loss.append(0)
+        # required for current CIL (needs to set self.loss)
+        self.loss.append(self.objective_function(self.x))
+
+    def objective_function(self, x):
+        ''' value of objective function summed over all subsets '''
+        v = 0
+        for s in range(len(self.data)):
+            v += self.subset_objective(x, s)
+        return v
+
+    def subset_objective(self, x, subset_num):
+        ''' value of objective function for one subset '''
+        raise NotImplementedError
 
 class BSREM1(BSREMSkeleton):
     ''' BSREM implementation using sirf.STIR objective functions'''
@@ -84,6 +90,9 @@ class BSREM1(BSREMSkeleton):
         ''' Compute gradient at x for a particular subset'''
         return self.obj_funs[self.subset].gradient(x)
 
+    def subset_objective(self, x, subset_num):
+        ''' value of objective function for one subset '''
+        return self.obj_funs[subset_num](x)
 
 class BSREM2(BSREMSkeleton):
     ''' BSREM implementation using acquisition models and prior'''
@@ -110,3 +119,9 @@ class BSREM2(BSREMSkeleton):
         f = self.acq_models[subset_num].forward(x)
         quotient = self.data[subset_num] / f
         return self.acq_models[subset_num].backward(quotient - 1) - self.prior.gradient(x)
+
+    def subset_objective(self, x, subset_num):
+        ''' value of objective function for one subset '''
+        f = self.acq_models[subset_num].forward(x)
+        return self.data[subset_num].dot(f.log()) - f.sum() - self.prior(x)
+
