@@ -71,7 +71,20 @@ def data_partition( prompts, background, multiplicative_factors, num_batches, mo
         else:
             raise ValueError('Unknown partition mode {}'.format(mode))
 
-def _partition_deterministic( prompts, background, multiplicative_factors, num_batches, stagger=False, indices=None, initial_image=None):
+def _default_acq_model():
+        '''
+        default acquisition model to use
+
+        use parallelproj if it exists, otherwise usign the ray-tracing matrix with 5 LORs
+        '''
+        try:
+            return pet.AcquisitionModelUsingParallelproj()
+        except AttributeError:
+            acq_model = pet.AcquisitionModelUsingRayTracingMatrix()
+            acq_model.set_num_tangential_LORs(5)
+            return acq_model
+
+def _partition_deterministic( prompts, background, multiplicative_factors, num_batches, stagger=False, indices=None, initial_image=None, create_acq_model = _default_acq_model):
     '''Partition the data into ``num_batches`` batches.
     
     Parameters
@@ -88,8 +101,10 @@ def _partition_deterministic( prompts, background, multiplicative_factors, num_b
         If ``True``, the batches will be staggered. Default is ``False``.
     indices : list of int, optional
         The indices to partition. If not specified, the indices will be generated from the number of projections.
-    initial_image: Optional,  AquisitionData
+    initial_image: Optional,  ImageData
             If passed, the returned objectives and acquisition models will be set-up. If not, they will be passed uninitialised
+    create_acq_model: Optional
+            A function that create an acquisition model. If not specified, _default_acq_model() will be used
         
     Returns
     -------
@@ -117,7 +132,7 @@ def _partition_deterministic( prompts, background, multiplicative_factors, num_b
         
         sensitivity_factors = pet.AcquisitionSensitivityModel(multiplicative_factors_subset)
         sensitivity_factors.set_up(multiplicative_factors_subset)
-        acquisition_model = pet.AcquisitionModelUsingParallelproj()
+        acquisition_model = create_acq_model()
         acquisition_model.set_acquisition_sensitivity(sensitivity_factors)
         acquisition_model.set_background_term(background_subset)
         

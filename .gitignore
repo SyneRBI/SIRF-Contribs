@@ -1,7 +1,7 @@
 *.pyd
 *.pyc
 **/__pycache__/
-
+**/.ipynb_checkpoints/
 
 .DS_Store
 *.log
@@ -20,3 +20,7 @@
 # Ignore files created by VS Code
 .vscode/
 
+# sirf.STIR files
+**/errors.txt
+**/info.txt
+**/warnings.txt
