@@ -76,6 +76,8 @@ def construct_NEMA_spheres_and_save(image):
     image=empty_image
     # assuming exagon shape
 
+
+    shape7 = pet.Ellipsoid()
     shape6 = pet.Ellipsoid()
     shape5 = pet.Ellipsoid()
     shape4 = pet.Ellipsoid()
@@ -131,6 +133,13 @@ def construct_NEMA_spheres_and_save(image):
     # add the shape to the image
     image.add_shape(shape1, scale = 1)
 
+    #Sphere 7 50 mm
+    shape7.set_radius_x((25))
+    shape7.set_radius_y((25))
+    shape7.set_radius_z((25))
+    shape7.set_origin((z, 0, 0))
+
+    image7 = image.get_uniform_copy(0)
     image6 = image.get_uniform_copy(0)
     image5 = image.get_uniform_copy(0)
     image4 = image.get_uniform_copy(0)
@@ -139,6 +148,7 @@ def construct_NEMA_spheres_and_save(image):
     image1 = image.get_uniform_copy(0)
 
 
+    image7.add_shape(shape7, scale = 1)
     image6.add_shape(shape6, scale = 1)
     image5.add_shape(shape5, scale = 1)
     image4.add_shape(shape4, scale = 1)
@@ -151,6 +161,7 @@ def construct_NEMA_spheres_and_save(image):
     image.write_par(data_output_path+'unregistered_sphere.nii',parfile)
 
     #unregistered_spheres to nifty
+    image7.write_par(data_output_path+'unregistered_sphere7.nii',parfile)
     image6.write_par(data_output_path+'unregistered_sphere6.nii',parfile)
     image5.write_par(data_output_path+'unregistered_sphere5.nii',parfile)
     image4.write_par(data_output_path+'unregistered_sphere4.nii',parfile)
@@ -166,7 +177,7 @@ def do_registration(recon_image):
     unregistered_spheres_nii=Reg.NiftiImageData3D(data_output_path+'unregistered_sphere.nii')
     unregistered_sphere_nii= []
 
-    for i in range(1,6+1):
+    for i in range(1,7+1):
         unregistered_sphere_nii.append(Reg.NiftiImageData3D(data_output_path+'unregistered_sphere'+str(i)+'.nii'))
 
     #now let's register
@@ -209,7 +220,7 @@ def generate_nema_rois(recon_image):
     # Use nearest neighbour interpolation
     resampler.set_interpolation_type_to_nearest_neighbour()
 
-    for j in range(6):
+    for j in range(7):
     # Set image to resample
         resampler.set_floating_image(unregistered_sphere_nii[j])
     # Go!
