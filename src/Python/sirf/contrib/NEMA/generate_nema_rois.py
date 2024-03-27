@@ -1,4 +1,6 @@
-'''Generate NEMA ROIs.
+'''Generate NEMA ROIs. The script generates the 6 NEMA spheres as ROI images and a 7th ROI image with a 
+sphere at the centre of the phamptom. The 7th ROI is meant to be used as background to calculate contrast,
+SD etc. The number of the ROI goes from the smallest to the biggest
 
 Usage:
   generate_nema_rois [--help | options]
@@ -40,8 +42,8 @@ import math as m
 import sirf.STIR  as pet
 
 def recon_from_sino(acq_data,image_size):
-    
-    # need to run a simple recon to register ROI with PET
+    # Run a simple recon to use as reference image to register ROI with PET
+
     # using parallelproj
     acq_model = pet.AcquisitionModelUsingParallelproj()
     # define objective function to be maximized as
@@ -67,6 +69,8 @@ def recon_from_sino(acq_data,image_size):
     return recon.get_output() 
 
 def construct_NEMA_spheres_and_save(image):
+    # Generates the spheres given the geometry of the input image. An image for each sphere and one with all the spheres
+    # are genrated and saved to nii format
     
     R=114/2
     z=140
@@ -170,6 +174,8 @@ def construct_NEMA_spheres_and_save(image):
     image1.write_par(data_output_path+'unregistered_sphere1.nii',parfile)
 
 def do_registration(recon_image):
+    # run the registration between the reconstructed image in input and  the image containing all the 6 NEMA spheres
+    # return the transformation matrix, nifti registered image, and the unregistered image
      
     parfile=pet.get_STIR_examples_dir()+'/samples/stir_math_ITK_output_file_format.par'
     recon_image.write_par(data_output_path+'recon.nii',parfile)
@@ -205,6 +211,7 @@ def do_registration(recon_image):
     return TM, reg_image, unregistered_sphere_nii
 
 def generate_nema_rois(recon_image):
+    #This actually  calls the different functions and return/save the registered ROI
     
     construct_NEMA_spheres_and_save(recon_image)
     TM, reg_image, unregistered_sphere_nii = do_registration(recon_image)    
