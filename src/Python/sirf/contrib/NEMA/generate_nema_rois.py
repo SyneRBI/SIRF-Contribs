@@ -1,6 +1,9 @@
 '''Generate NEMA ROIs. The script generates the 6 NEMA spheres as ROI images and a 7th ROI image with a 
 sphere at the centre of the phamptom. The 7th ROI is meant to be used as background to calculate contrast,
-SD etc. The number of the ROI goes from the smallest to the biggest
+SD etc. The number of the ROI goes from the smallest to the biggest.
+unregistered_sphere<i>.nii is the nift image of the ith unregistered sphere;
+unregistered_spheres.nii is the nifti image with all the unregistered spheres;
+S<i>.nii/.hv is the nifti/interfile image of the ith sphere. These are the ones you need to use for analysis.
 
 Usage:
   generate_nema_rois [--help | options]
@@ -9,7 +12,6 @@ Options:
   -s <file>, --sino=<file>     raw data file [default: no default you need an input of a NEMA sinogram]
   -i <file>, --image=<file>              reconstructed image file if None the script runs a reconstruction
   -o <out_path>, --outpath=<out_path>     path to data files, defaults to current directory
-                               subfolder of SIRF root folder
   --xysize=<xy_size> optional size of image in x and y
 '''
 
@@ -162,7 +164,7 @@ def construct_NEMA_spheres_and_save(image):
 
     parfile=pet.get_STIR_examples_dir()+'/samples/stir_math_ITK_output_file_format.par'
 
-    image.write_par(data_output_path+'unregistered_sphere.nii',parfile)
+    image.write_par(data_output_path+'unregistered_spheres.nii',parfile)
 
     #unregistered_spheres to nifty
     image7.write_par(data_output_path+'unregistered_sphere7.nii',parfile)
@@ -180,7 +182,7 @@ def do_registration(recon_image):
     parfile=pet.get_STIR_examples_dir()+'/samples/stir_math_ITK_output_file_format.par'
     recon_image.write_par(data_output_path+'recon.nii',parfile)
     recon_nii=Reg.NiftiImageData3D(data_output_path+'recon.nii')
-    unregistered_spheres_nii=Reg.NiftiImageData3D(data_output_path+'unregistered_sphere.nii')
+    unregistered_spheres_nii=Reg.NiftiImageData3D(data_output_path+'unregistered_spheres.nii')
     unregistered_sphere_nii= []
 
     for i in range(1,7+1):
