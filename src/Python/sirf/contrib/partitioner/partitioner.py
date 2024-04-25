@@ -190,7 +190,7 @@ def _partition_random_permutation( prompts, background, multiplicative_factor, n
 
     indices = list(indices)            
     
-    return _partition_deterministic(prompts, background, multiplicative_factor,views, num_batches, stagger=False, indices=indices, initial_image=initial_image)
+    return _partition_deterministic(prompts, background, multiplicative_factor, num_batches, stagger=False, indices=indices, initial_image=initial_image)
 
 def _partition_indices(num_batches, indices, stagger=False):
         """Partition a list of indices into num_batches of indices.
