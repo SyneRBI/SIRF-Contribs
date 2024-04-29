@@ -15,7 +15,7 @@ from cil.optimisation.algorithms import Algorithm
 
 class BSREMSkeleton(Algorithm):
     def __init__(self, data, initial, initial_step_size, relaxation_eta, **kwargs):
-        super(BSREMSkeleton, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.x = initial.copy()
         self.data = data
         self.num_subsets = len(data)
@@ -77,7 +77,7 @@ class BSREM1(BSREMSkeleton):
         step-size relaxation (per epoch) and optionally Algorithm parameters
         '''
         self.obj_funs = obj_funs
-        super(BSREM1, self).__init__(data, initial, initial_step_size, relaxation_eta, **kwargs)
+        super().__init__(data, initial, initial_step_size, relaxation_eta, **kwargs)
 
     def subset_sensitivity(self, subset_num):
         ''' Compute sensitivity for a particular subset'''
@@ -88,7 +88,7 @@ class BSREM1(BSREMSkeleton):
 
     def subset_gradient(self, x, subset_num):
         ''' Compute gradient at x for a particular subset'''
-        return self.obj_funs[self.subset].gradient(x)
+        return self.obj_funs[subset_num].gradient(x)
 
     def subset_objective(self, x, subset_num):
         ''' value of objective function for one subset '''
@@ -107,7 +107,7 @@ class BSREM2(BSREMSkeleton):
         '''
         self.acq_models = acq_models
         self.prior = prior
-        super(BSREM2, self).__init__(data, initial, initial_step_size, relaxation_eta, **kwargs)
+        super().__init__(data, initial, initial_step_size, relaxation_eta, **kwargs)
 
     def subset_sensitivity(self, subset_num):
         ''' Compute sensitivity for a particular subset'''
