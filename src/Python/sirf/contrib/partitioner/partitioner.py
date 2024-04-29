@@ -12,7 +12,23 @@ import numpy
 import math 
 import sirf.STIR as pet
 
-def data_partition( prompts, background, multiplicative_factors, num_batches, mode="sequential", seed=None, initial_image=None): 
+def create_RayTracingAcqModel():
+        acq_model = pet.AcquisitionModelUsingRayTracingMatrix()
+        acq_model.set_num_tangential_LORs(5)
+        return acq_model
+
+def _default_acq_model():
+        '''
+        default acquisition model to use
+
+        use parallelproj if it exists, otherwise usign the ray-tracing matrix with 5 LORs
+        '''
+        try:
+            return pet.AcquisitionModelUsingParallelproj()
+        except AttributeError:
+            return create_RayTracingAcqModel()
+
+def data_partition( prompts, background, multiplicative_factors, num_batches, mode="sequential", seed=None, initial_image=None, create_acq_model = _default_acq_model):
         '''Partition the data into ``num_batches`` batches using the specified ``mode``.
         
 
@@ -63,26 +79,13 @@ def data_partition( prompts, background, multiplicative_factors, num_batches, mo
 
         '''
         if mode == "sequential":
-            return _partition_deterministic( prompts, background, multiplicative_factors, num_batches, stagger=False, initial_image=initial_image)
+            return _partition_deterministic( prompts, background, multiplicative_factors, num_batches, stagger=False, initial_image=initial_image, create_acq_model=create_acq_model)
         elif mode == "staggered":
-            return _partition_deterministic( prompts, background, multiplicative_factors, num_batches, stagger=True, initial_image=initial_image)
+            return _partition_deterministic( prompts, background, multiplicative_factors, num_batches, stagger=True, initial_image=initial_image, create_acq_model=create_acq_model)
         elif mode == "random":
-            return _partition_random_permutation( prompts, background, multiplicative_factors, num_batches, seed=seed, initial_image=initial_image)
+            return _partition_random_permutation( prompts, background, multiplicative_factors, num_batches, seed=seed, initial_image=initial_image, create_acq_model=create_acq_model)
         else:
             raise ValueError('Unknown partition mode {}'.format(mode))
-
-def _default_acq_model():
-        '''
-        default acquisition model to use
-
-        use parallelproj if it exists, otherwise usign the ray-tracing matrix with 5 LORs
-        '''
-        try:
-            return pet.AcquisitionModelUsingParallelproj()
-        except AttributeError:
-            acq_model = pet.AcquisitionModelUsingRayTracingMatrix()
-            acq_model.set_num_tangential_LORs(5)
-            return acq_model
 
 def _partition_deterministic( prompts, background, multiplicative_factors, num_batches, stagger=False, indices=None, initial_image=None, create_acq_model = _default_acq_model):
     '''Partition the data into ``num_batches`` batches.
