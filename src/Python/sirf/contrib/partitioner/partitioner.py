@@ -12,24 +12,34 @@ import numpy
 import math 
 import sirf.STIR as pet
 
-def create_RayTracingAcqModel():
+def create_RayTracingAcqModel(num_LORs=5):
+        '''
+        Factory that creates a ray-tracing acquisition model
+        '''
         acq_model = pet.AcquisitionModelUsingRayTracingMatrix()
-        acq_model.set_num_tangential_LORs(5)
+        acq_model.set_num_tangential_LORs(num_LORs)
+        return acq_model
+
+def create_ParallelprojModel():
+        '''
+        Factory that creates a Parallelproj acquisition model
+        '''
+        acq_model = pet.AcquisitionModelUsingParallelproj()
         return acq_model
 
 def _default_acq_model():
         '''
-        default acquisition model to use
+        create default acquisition model
 
-        use parallelproj if it exists, otherwise usign the ray-tracing matrix with 5 LORs
+        creates the parallelproj model if it exists, otherwise create a ray-tracing matrix model with 5 LORs
         '''
         try:
-            return pet.AcquisitionModelUsingParallelproj()
+            return create_ParallelprojModel()
         except AttributeError:
             return create_RayTracingAcqModel()
 
-def data_partition( prompts, background, multiplicative_factors, num_batches, mode="sequential", seed=None, initial_image=None, create_acq_model = _default_acq_model):
-        '''Partition the data into ``num_batches`` batches using the specified ``mode``.
+def data_partition( prompts, additive_term, multiplicative_factors, num_batches, mode="sequential", seed=None, initial_image=None, create_acq_model = _default_acq_model):
+        '''Partition the data into ``num_batches`` batches using the specified ``mode`` and creates an acquisition model for every batch.
         
 
         The modes are
@@ -44,10 +54,10 @@ def data_partition( prompts, background, multiplicative_factors, num_batches, mo
         ----------
         prompts: 
             Noisy data
-        background:
-            background factors
+        additive_term:
+            additive term ("corrected" scatter+randoms)
         multiplicative_factors:
-            bin efficiency      
+            bin efficiencies
         num_batches : int
             The number of batches to partition the data into.
         mode : str
@@ -57,7 +67,8 @@ def data_partition( prompts, background, multiplicative_factors, num_batches, mo
             generator will not be seeded.
         initial_image: Optional,  ImageData
             If passed, the returned objectives and acquisition models will be set-up. If not, you will have to do this yourself.
-
+        create_acq_model: Optional, AcquisitionModel "factory"
+            The argument needs to be a function that returns a new AcquisitionMode, such as create_RayTracingAcqModel.
 
 
         Returns
@@ -79,25 +90,25 @@ def data_partition( prompts, background, multiplicative_factors, num_batches, mo
 
         '''
         if mode == "sequential":
-            return _partition_deterministic( prompts, background, multiplicative_factors, num_batches, stagger=False, initial_image=initial_image, create_acq_model=create_acq_model)
+            return _partition_deterministic( prompts, additive_term, multiplicative_factors, num_batches, stagger=False, initial_image=initial_image, create_acq_model=create_acq_model)
         elif mode == "staggered":
-            return _partition_deterministic( prompts, background, multiplicative_factors, num_batches, stagger=True, initial_image=initial_image, create_acq_model=create_acq_model)
+            return _partition_deterministic( prompts, additive_term, multiplicative_factors, num_batches, stagger=True, initial_image=initial_image, create_acq_model=create_acq_model)
         elif mode == "random":
-            return _partition_random_permutation( prompts, background, multiplicative_factors, num_batches, seed=seed, initial_image=initial_image, create_acq_model=create_acq_model)
+            return _partition_random_permutation( prompts, additive_term, multiplicative_factors, num_batches, seed=seed, initial_image=initial_image, create_acq_model=create_acq_model)
         else:
             raise ValueError('Unknown partition mode {}'.format(mode))
 
-def _partition_deterministic( prompts, background, multiplicative_factors, num_batches, stagger=False, indices=None, initial_image=None, create_acq_model = _default_acq_model):
+def _partition_deterministic( prompts, additive_term, multiplicative_factors, num_batches, stagger=False, indices=None, initial_image=None, create_acq_model = _default_acq_model):
     '''Partition the data into ``num_batches`` batches.
     
     Parameters
     ----------
     prompts: 
             Noisy data
-    background:
-        background factors
+    additive_term:
+        additive term ("corrected" scatter+randoms)
     multiplicative_factors:
-        bin efficiency   
+        bin efficiencies
     num_batches : int
         The number of batches to partition the data into.
     stagger : bool, optional
@@ -105,9 +116,9 @@ def _partition_deterministic( prompts, background, multiplicative_factors, num_b
     indices : list of int, optional
         The indices to partition. If not specified, the indices will be generated from the number of projections.
     initial_image: Optional,  ImageData
-            If passed, the returned objectives and acquisition models will be set-up. If not, they will be passed uninitialised
-    create_acq_model: Optional
-            A function that create an acquisition model. If not specified, _default_acq_model() will be used
+            If passed, the returned objectives and acquisition models will be set-up with this image. If not, they will be returned uninitialised.
+    create_acq_model: Optional, AcquisitionModel "factory"
+            The argument needs to be a function that returns a new AcquisitionModel, such as create_RayTracingAcqModel.
         
     Returns
     -------
@@ -126,18 +137,18 @@ def _partition_deterministic( prompts, background, multiplicative_factors, num_b
     views=prompts.dimensions()[2]
     if indices is None:
         indices = list(range(views))
-    partition_indices = _partition_indices(num_batches, indices, stagger)
+    partitions_idxs = partition_indices(num_batches, indices, stagger)
   
-    for i in range(len(partition_indices)):
-        prompts_subset = prompts.get_subset(partition_indices[i])
-        background_subset = background.get_subset(partition_indices[i])
-        multiplicative_factors_subset = multiplicative_factors.get_subset(partition_indices[i])
+    for i in range(len(partitions_idxs)):
+        prompts_subset = prompts.get_subset(partitions_idxs[i])
+        additive_term_subset = additive_term.get_subset(partitions_idxs[i])
+        multiplicative_factors_subset = multiplicative_factors.get_subset(partitions_idxs[i])
         
         sensitivity_factors = pet.AcquisitionSensitivityModel(multiplicative_factors_subset)
         sensitivity_factors.set_up(multiplicative_factors_subset)
         acquisition_model = create_acq_model()
         acquisition_model.set_acquisition_sensitivity(sensitivity_factors)
-        acquisition_model.set_background_term(background_subset)
+        acquisition_model.set_additive_term(additive_term_subset)
         
         if initial_image is not None:
             acquisition_model.set_up(prompts_subset, initial_image)
@@ -154,26 +165,26 @@ def _partition_deterministic( prompts, background, multiplicative_factors, num_b
     return prompts_subsets, acquisition_models, objectives
 
 
-def _partition_random_permutation( prompts, background, multiplicative_factor, num_batches, seed=None, initial_image=None):
-    '''Partition the data into ``num_batches`` batches using a random permutation.
+def _partition_random_permutation( prompts, additive_term, multiplicative_factor, num_batches, seed=None, initial_image=None, create_acq_model = _default_acq_model):
+    '''Partition the data into ``num_batches`` batches using a random permutation and creates an acquisition model for each batch.
 
     Parameters
     ----------
     prompts: 
             Noisy data
-    background:
-        background factors
+    additive_term:
+        additive term ("corrected" scatter+randoms)
     multiplicative_factors:
-        bin efficiency 
-    views:
-        The measurement views 
+        bin efficiencies
     num_batches : int
         The number of batches to partition the data into.
     seed : int, optional
         The seed to use for the random permutation. If not specified, the random number generator
         will not be seeded.
-    initial_image: Optional,  AquisitionData
-            If passed, the returned objectives and acquisition models will be set-up. If not, they will be passed uninitialised
+    initial_image: Optional,  ImageData
+            If passed, the returned objectives and acquisition models will be set-up with this image. If not, they will be returned uninitialised
+    create_acq_model: Optional, AcquisitionModel "factory"
+            The argument needs to be a function that returns a new AcquisitionModel, such as create_RayTracingAcqModel.
             
     Returns
     -------
@@ -193,9 +204,9 @@ def _partition_random_permutation( prompts, background, multiplicative_factor, n
 
     indices = list(indices)            
     
-    return _partition_deterministic(prompts, background, multiplicative_factor, num_batches, stagger=False, indices=indices, initial_image=initial_image)
+    return _partition_deterministic(prompts, additive_term, multiplicative_factor, num_batches, stagger=False, indices=indices, initial_image=initial_image)
 
-def _partition_indices(num_batches, indices, stagger=False):
+def partition_indices(num_batches, indices, stagger=False):
         """Partition a list of indices into num_batches of indices.
         
         Parameters
