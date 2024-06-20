@@ -140,10 +140,15 @@ def _partition_deterministic( prompts, additive_term, multiplicative_factors, nu
     partitions_idxs = partition_indices(num_batches, indices, stagger)
   
     for i in range(len(partitions_idxs)):
-        prompts_subset = prompts.get_subset(partitions_idxs[i])
-        additive_term_subset = additive_term.get_subset(partitions_idxs[i])
-        multiplicative_factors_subset = multiplicative_factors.get_subset(partitions_idxs[i])
-        
+        if len(partitions_idxs) > 1:
+            prompts_subset = prompts.get_subset(partitions_idxs[i])
+            additive_term_subset = additive_term.get_subset(partitions_idxs[i])
+            multiplicative_factors_subset = multiplicative_factors.get_subset(partitions_idxs[i])
+        else:
+            prompts_subset = prompts
+            additive_term_subset = additive_term
+            multiplicative_factors_subset = multiplicative_factors
+
         sensitivity_factors = pet.AcquisitionSensitivityModel(multiplicative_factors_subset)
         sensitivity_factors.set_up(multiplicative_factors_subset)
         acquisition_model = create_acq_model()
