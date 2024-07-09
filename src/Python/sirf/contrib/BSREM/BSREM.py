@@ -14,7 +14,16 @@ from sirf.Utilities import examples_data_path
 from cil.optimisation.algorithms import Algorithm 
 
 class BSREMSkeleton(Algorithm):
-    def __init__(self, data, initial, initial_step_size, relaxation_eta, **kwargs):
+    ''' Main implementation of a modified BSREM algorithm
+
+    This essentially implements constrained preconditioned gradient ascent
+    with an EM-type preconditioner
+    '''
+    def __init__(self, data, initial, initial_step_size, relaxation_eta,
+                 iteration_filter=STIR.TruncateToCylinderProcessor(), **kwargs):
+        '''
+        iteration_filter is applied after every update. Set it to `None` if you don't want any.
+        '''
         super().__init__(**kwargs)
         self.x = initial.copy()
         self.data = data
@@ -30,7 +39,7 @@ class BSREMSkeleton(Algorithm):
         # add a small number to avoid division by zero in the preconditioner
         self.average_sensitivity += self.average_sensitivity.max()/1e4
         self.subset = 0
-        self.FOV_filter = STIR.TruncateToCylinderProcessor()
+        self.iteration_filter = iteration_filter
         self.configured = True
 
     def subset_sensitivity(self, subset_num):
@@ -48,7 +57,8 @@ class BSREMSkeleton(Algorithm):
     def update(self):
         g = self.subset_gradient(self.x, self.subset)
         self.x_update = (self.x + self.eps) * g / self.average_sensitivity * self.step_size()
-        self.FOV_filter.apply(self.x_update)
+        if self.iteration_filter:
+            self.iteration_filter.apply(self.x_update)
         self.x += self.x_update
         # threshold to non-negative
         self.x.maximum(0, out=self.x)
