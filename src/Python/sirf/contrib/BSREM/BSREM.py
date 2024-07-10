@@ -57,7 +57,7 @@ class BSREMSkeleton(Algorithm):
     def update(self):
         g = self.subset_gradient(self.x, self.subset)
         self.x_update = (self.x + self.eps) * g / self.average_sensitivity * self.step_size()
-        if self.iteration_filter:
+        if self.iteration_filter is not None:
             self.iteration_filter.apply(self.x_update)
         self.x += self.x_update
         # threshold to non-negative
