@@ -17,12 +17,22 @@ class BSREMSkeleton(Algorithm):
     ''' Main implementation of a modified BSREM algorithm
 
     This essentially implements constrained preconditioned gradient ascent
-    with an EM-type preconditioner
+    with an EM-type preconditioner.
+
+    In each update step, the gradient of a subset is computed, multiplied by a step_size and a EM-type preconditioner.
+    Before adding this to the previous iterate, an update_filter can be applied.
+
+    Step-size uses relaxation: ``initial_step_size`` / (1 + ``relaxation_eta`` * ``epoch()``)
     '''
     def __init__(self, data, initial, initial_step_size, relaxation_eta,
-                 iteration_filter=STIR.TruncateToCylinderProcessor(), **kwargs):
+                 update_filter=STIR.TruncateToCylinderProcessor(), **kwargs):
         '''
-        iteration_filter is applied after every update. Set it to `None` if you don't want any.
+        Arguments:
+        ``data``: list of items as returned by `partitioner`
+        ``initial``: initial estimate
+        ``initial_step_size``, ``relaxation_eta``: step-size constants
+        ``update_filter`` is applied on the (additive) update term, i.e. before adding to the previous iterate.
+        Set the filter to `None` if you don't want any.
         '''
         super().__init__(**kwargs)
         self.x = initial.copy()
@@ -39,7 +49,7 @@ class BSREMSkeleton(Algorithm):
         # add a small number to avoid division by zero in the preconditioner
         self.average_sensitivity += self.average_sensitivity.max()/1e4
         self.subset = 0
-        self.iteration_filter = iteration_filter
+        self.update_filter = update_filter
         self.configured = True
 
     def subset_sensitivity(self, subset_num):
@@ -57,8 +67,8 @@ class BSREMSkeleton(Algorithm):
     def update(self):
         g = self.subset_gradient(self.x, self.subset)
         self.x_update = (self.x + self.eps) * g / self.average_sensitivity * self.step_size()
-        if self.iteration_filter is not None:
-            self.iteration_filter.apply(self.x_update)
+        if self.update_filter is not None:
+            self.update_filter.apply(self.x_update)
         self.x += self.x_update
         # threshold to non-negative
         self.x.maximum(0, out=self.x)
