@@ -43,7 +43,7 @@ import math as m
 
 import sirf.STIR  as pet
 
-def recon_from_sino(acq_data,image_size):
+def recon_from_sino(acq_data, initial_image):
     # Run a simple recon to use as reference image to register ROI with PET
 
     # using parallelproj
