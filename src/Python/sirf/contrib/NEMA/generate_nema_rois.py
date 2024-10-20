@@ -1,7 +1,8 @@
+#!/usr/bin/env python
 '''Generate NEMA ROIs. The script generates the 6 NEMA spheres as ROI images and a 7th ROI image with a 
-sphere at the centre of the phamptom. The 7th ROI is meant to be used as background to calculate contrast,
+sphere at the centre of the phantom. The 7th ROI is meant to be used as background to calculate contrast,
 SD etc. The number of the ROI goes from the smallest to the biggest.
-unregistered_sphere<i>.nii is the nift image of the ith unregistered sphere;
+unregistered_sphere<i>.nii is the nifti image of the ith unregistered sphere;
 unregistered_spheres.nii is the nifti image with all the unregistered spheres;
 S<i>.nii/.hv is the nifti/interfile image of the ith sphere. These are the ones you need to use for analysis.
 
@@ -9,10 +10,11 @@ Usage:
   generate_nema_rois [--help | options]
 
 Options:
-  -s <file>, --sino=<file>     raw data file [default: no default you need an input of a NEMA sinogram]
-  -i <file>, --image=<file>              reconstructed image file if None the script runs a reconstruction
-  -o <out_path>, --outpath=<out_path>     path to data files, defaults to current directory
-  --xysize=<xy_size> optional size of image in x and y
+  -i <file>, --image=<file>    reconstructed image file. if None the script runs a reconstruction
+  -s <file>, --sino=<file>     raw data file to reconstruct
+  --xysize=<xy_size>           optional size of image in x and y (only used when passing a sino)
+  -o <out_path>, --outpath=<out_path>         path to write output, defaults to current directory
+  -a <angle>, --angle-smallest-sphere=<angle> angle in degrees of smallest sphere [default: 210]
 '''
 
 ## SyneRBI Synergistic Image Reconstruction Framework (SIRF)
@@ -70,13 +72,13 @@ def recon_from_sino(acq_data, initial_image):
     recon.process()
     return recon.get_output() 
 
-def construct_NEMA_spheres_and_save(image):
+def construct_NEMA_spheres_and_save(image: pet.ImageData, angle_smallest=210):
     # Generates the spheres given the geometry of the input image. An image for each sphere and one with all the spheres
-    # are genrated and saved to nii format
+    # are generated and saved to nii format
     
-    R=114/2
-    z=140
-    angle_smallest=210
+    R = 114/2
+    # TODO next line is specific to current STIR conventions
+    z = image.voxel_sizes()[0] * (image.dimensions()[0] - 1)/2
     # create an empty image
     empty_image = image.get_uniform_copy(0)
     image=empty_image
@@ -212,10 +214,10 @@ def do_registration(recon_image):
     print(TM.as_array())
     return TM, reg_image, unregistered_sphere_nii
 
-def generate_nema_rois(recon_image):
+def generate_nema_rois(recon_image: pet.ImageData, angle_smallest=210):
     #This actually  calls the different functions and return/save the registered ROI
     
-    construct_NEMA_spheres_and_save(recon_image)
+    construct_NEMA_spheres_and_save(recon_image, angle_smallest)
     TM, reg_image, unregistered_sphere_nii = do_registration(recon_image)    
 
     #once we have the registration matrix we can then apply it to the sphere generation
@@ -229,6 +231,7 @@ def generate_nema_rois(recon_image):
     # Use nearest neighbour interpolation
     resampler.set_interpolation_type_to_nearest_neighbour()
 
+    ROIs = []
     for j in range(7):
     # Set image to resample
         resampler.set_floating_image(unregistered_sphere_nii[j])
@@ -237,9 +240,10 @@ def generate_nema_rois(recon_image):
         Roi = resampler.get_output()
         Roi.write(data_output_path+'S'+str(j+1)+'.nii')#TODO getting sirf imagedata to nifty to work without messing the orientation
         ROIsirf = pet.ImageData(data_output_path+'S'+str(j+1)+'.nii')
-        ROIsirf.write('S'+str(j+1))
+        ROIsirf.write(data_output_path+'S'+str(j+1))
+        ROIs.append(ROIsirf)
 
-    return ROIsirf
+    return ROIs
 
 if __name__ == '__main__':
     from docopt import docopt
