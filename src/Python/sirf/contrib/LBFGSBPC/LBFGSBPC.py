@@ -25,15 +25,18 @@ class LBFGSBPC:
     This implementation is NOT a CIL.Algorithm, but it behaves somewhat as one.
     '''
     def __init__(self, objfun: STIR.ObjectiveFunction, initial: STIR.ImageData, update_objective_interval: int = 0):
+        self.trunc_filter = STIR.TruncateToCylinderProcessor()
         self.objfun = objfun
-        self.initial = initial
+        self.initial = initial.clone()
+        self.trunc_filter.apply(self.initial)
         self.shape = initial.shape
         self.output = None
         self.update_objective_interval = update_objective_interval
         precon = objfun.multiply_with_Hessian(initial, initial.get_uniform_copy(1))*-1
-        self.Dinv = 1 / (np.sqrt(np.maximum(10, precon.as_array())).ravel() + 1e-0) # TODO remove arbitrary factors
-        #precon.show()
-        plt.imshow(np.reshape(self.Dinv, self.shape)[0,:,:])
+        self.Dinv_SIRF = precon.maximum(1).power(-.5)
+        self.trunc_filter.apply(self.Dinv_SIRF)
+        self.Dinv = self.Dinv_SIRF.asarray().ravel()
+        #self.Dinv_SIRF.show(title='Dinv')
         self.tmp_for_value = initial.clone()
         self.tmp_for_gradient = initial.clone()
 
@@ -43,7 +46,7 @@ class LBFGSBPC:
 
     def precond_objfun_gradient(self, z: npt.ArrayLike) -> np.ndarray:
         self.tmp_for_gradient.fill(np.reshape(z * self.Dinv, self.shape))
-        return self.objfun.gradient(self.tmp_for_gradient).as_array().ravel() * self.Dinv * -1
+        return self.objfun.gradient(self.tmp_for_gradient).asarray().ravel() * self.Dinv * -1
 
     def callback(self, x):
         if self.update_objective_interval > 0 and self.iter % self.update_objective_interval == 0:
@@ -52,7 +55,9 @@ class LBFGSBPC:
         self.iter += 1
 
     def process(self) -> None:
-        precond_init = self.initial.as_array().ravel() * self.Dinv
+        precond_init = self.initial / self.Dinv_SIRF
+        self.trunc_filter.apply(precond_init)
+        precond_init = precond_init.asarray().ravel()
         bounds = precond_init.size * [(0, None)]
         self.iter = 0
         self.iterations = [0]
@@ -71,6 +76,9 @@ class LBFGSBPC:
         # store result (use name "x" for CIL compatibility)
         self.x = self.tmp_for_value.get_uniform_copy(0)
         self.x.fill(np.reshape(res[0] * self.Dinv, self.shape))
+        #self.x.fill(np.reshape(res[0], self.shape))
+        #self.x.show(title='final image in preconditioned space')
+        #self.x *= self.Dinv_SIRF
 
     def run(self) -> None: # CIL alias, would need to support iterations keyword?
         self.process()
