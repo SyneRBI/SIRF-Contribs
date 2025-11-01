@@ -20,4 +20,4 @@ from sirf.contrib import kcl
 - [Grappa_and_CIL](./src/notebooks/Grappa_and_CIL.ipynb) - notebook demonstrating CIL integration with SIRF, with the use case of a GRAPPA reconstruction of MR data.
 - example functions and notebooks for MAP optimisation with PET (or SPECT)
   - BSREM [implementation](./src/Python/sirf/contrib/BSREM) and [notebook](./src/notebooks/BSREM_illustration.ipynb) using a preconditioned gradient ascent algorithm.
-  - LBFGS-B-PC [implementation](./src/Python/sirf/contrib/LBFSGBPC) and [notebook](./src/notebooks/LBFSGBPC_illustration.ipynb) using a preconditioned LBFGS-B algorithm (calling SciPy).
+  - LBFGS-B-PC [implementation](./src/Python/sirf/contrib/LBFGSBPC) and [notebook](./src/notebooks/LBFGSBPC_illustration.ipynb) using a preconditioned LBFGS-B algorithm (calling SciPy).
