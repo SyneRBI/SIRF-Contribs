@@ -14,7 +14,9 @@
 import numpy as np
 import numpy.typing as npt
 import sirf.STIR as STIR
+import os
 from scipy.optimize import fmin_l_bfgs_b
+from typing import Callable, Optional, List
 
 
 class LBFGSBPC:
@@ -37,7 +39,25 @@ class LBFGSBPC:
         objfun: STIR.ObjectiveFunction,
         initial: STIR.ImageData,
         update_objective_interval: int = 0,
+        save_interval: int = -1,
+        save_intermediate_results_path=None,
+        auto_preconditioner: bool = True,
     ):
+        r"""Constructor
+
+        Parameters
+        -----------
+        objfun: function to maximise
+        initial: initial image
+        update_objective_interval: int, default is 0
+           interval to compute and store objective values
+        save_interval: int, default is -1
+           interval to save images, default means "use update_objective_interval"
+        save_intermediate_results_path: str, default is None
+           directory to save images, default means "don't save"
+        auto_preconditioner: bool, default is True
+           auto-compute preconditioner as H.1
+        """
         self.trunc_filter = STIR.TruncateToCylinderProcessor()
         self.objfun = objfun
         self.initial = initial.clone()
@@ -45,13 +65,30 @@ class LBFGSBPC:
         self.shape = initial.shape
         self.output = None
         self.update_objective_interval = update_objective_interval
-        precon = objfun.multiply_with_Hessian(initial, initial.get_uniform_copy(1)) * -1
+        self.save_interval = (
+            save_interval if save_interval >= 0 else update_objective_interval
+        )
+        self.save_intermediate_results_path = save_intermediate_results_path
+        if auto_preconditioner:
+            self.set_preconditioner()
+        else:
+            self.Dinv = None
+        self.tmp_for_value = initial.clone()
+        self.tmp_for_gradient = initial.clone()
+
+    def set_preconditioner(self, precon=None) -> None:
+        r"""set preconditioner (either from initial or argument)"""
+        if precon is None:
+            precon = (
+                self.objfun.multiply_with_Hessian(
+                    self.initial, self.initial.get_uniform_copy(1)
+                )
+                * -1
+            )
         self.Dinv_SIRF = precon.maximum(1).power(-0.5)
         self.trunc_filter.apply(self.Dinv_SIRF)
         self.Dinv = self.Dinv_SIRF.asarray().ravel()
         # self.Dinv_SIRF.show(title='Dinv')
-        self.tmp_for_value = initial.clone()
-        self.tmp_for_gradient = initial.clone()
 
     def precond_objfun_value(self, z: npt.ArrayLike) -> float:
         self.tmp_for_value.fill(np.reshape(z * self.Dinv, self.shape))
@@ -72,11 +109,31 @@ class LBFGSBPC:
         ):
             self.loss.append(-self.precond_objfun_value(x))
             self.iterations.append(self.iter)
+        if (
+            self.save_intermediate_results_path is not None
+            and self.save_interval > 0
+            and self.iter % self.save_interval == 0
+        ):
+            filename = os.path.join(
+                self.save_intermediate_results_path, f"iter_{self.iter:04d}.hv"
+            )
+            self.tmp_for_gradient.fill(np.reshape(x * self.Dinv, self.shape))
+            self.tmp_for_gradient.write(filename)
         self.iter += 1
 
     def process(self, iterations=None) -> None:
+        r"""run upto :code:`iterations` with callback.
+        Parameters
+        -----------
+        iterations: int, default is None, but required
+            Number of iterations to run.
+        """
         if iterations is None:
             raise ValueError("`missing argument `iterations`")
+        if self.Dinv is None:
+            raise RuntimeError("Need to set preconditioner first")
+        if self.save_intermediate_results_path is not None and self.save_interval > 0:
+            os.makedirs(self.save_intermediate_results_path, exist_ok=True)
         precond_init = self.initial / self.Dinv_SIRF
         self.trunc_filter.apply(precond_init)
         precond_init = precond_init.asarray().ravel()
@@ -108,7 +165,9 @@ class LBFGSBPC:
     def run(
         self, **kwargs
     ) -> None:  # CIL alias, would need to callback and verbose keywords etc
+        r"""alias for process()"""
         self.process(**kwargs)
 
     def get_output(self) -> STIR.ImageData:
+        r"""return result"""
         return self.x
