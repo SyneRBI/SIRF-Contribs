@@ -90,7 +90,7 @@ for file in mod_input_files:
         f = LeastSquares(E, acq_data_ai, c=1)
 
         alpha = 0.3
-        TV = FGP_TV(alpha=alpha, nonnegativity=False, device='gpu')
+        TV = FGP_TV(alpha=alpha, nonnegativity=False, device='cpu')
         G = TV
 
         # add logger callback to FISTA
