@@ -94,8 +94,7 @@ for file in mod_input_files:
         G = TV
 
         # add logger callback to FISTA
-        # lc = LogfileCallback(log_file=os.path.join(recon_dir, "fista_log.txt"))
-        lc = TextProgressCallback()
+
 
         # Set up FISTA
         fista = FISTA(initial=x_init.fill(0.0), f=f, g=G)
@@ -103,7 +102,7 @@ for file in mod_input_files:
 
         # Run FISTA for least squares
         num_iterations = 10
-        fista.run(num_iterations, callback=lc)
+        fista.run(num_iterations)
 
         to_dicom_folder(
             data=fista.solution.as_array(), 
