@@ -64,6 +64,9 @@ for fname in input_files:
     logger.info(f"Modified ISMRMRD file saved as {file_out_mod}")
     mod_input_files.append(file_out_mod)
 
+
+# start gadgetron
+gadgetron = subprocess.Popen(["gadgetron"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 # reconstruct AI recon
 
 for file in mod_input_files:
@@ -110,6 +113,9 @@ for file in mod_input_files:
             filename_prefix="sirf_recon_" + os.path.basename(file).replace(".h5", ""),
             series_description=f"SIRF recon_{num_iterations} LS+ {alpha} TV"
         )
+
+# stop gadgetron
+gadgetron.kill()
 
 # delete proc_dir
 if os.path.exists(proc_dir):
