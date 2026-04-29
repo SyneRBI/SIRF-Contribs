@@ -2,8 +2,6 @@ import ismrmrd
 import os
 from sirf.Gadgetron import ImageData
 
-
-
 def change_ismrmrd(full_filename_in, full_filename_out, matrixSizeY=None):
     if full_filename_in == full_filename_out:
         raise ValueError('Input and output filename are the same. This would overwrite the original data.')

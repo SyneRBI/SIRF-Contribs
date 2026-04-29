@@ -18,15 +18,19 @@ from cil.optimisation.algorithms import FISTA, CGLS, GD
 from cil.plugins.ccpi_regularisation.functions import FGP_TV
 from cil.framework import DataContainer as cilDataContainer
 from cil.optimisation.operators import LinearOperator
-
+from cil.optimisation.utilities.callbacks import LogfileCallback
+import tempfile
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 command = "siemens_to_ismrmrd"
-data_dir = "/home/jovyan/work/data/"
-proc_dir = os.path.join(data_dir, "proc")
-recon_dir = os.path.join(data_dir, "recon")
+# data_dir = "/home/jovyan/work/data/"
+data_dir = os.path.abspath('/input')
+# proc_dir = os.path.join(data_dir, "proc")
+proc_dir = tempfile.mkdtemp(prefix="stgeorges_proc_")
+# recon_dir = os.path.join(data_dir, "recon")
+recon_dir = os.path.abspath('/output')
 
 input_files = [            
                 #"meas_MID00614_FID129152_CONVENTIONAL_RECON_SEQD_GF2_AX_RL.dat",
@@ -86,8 +90,11 @@ for file in mod_input_files:
         f = LeastSquares(E, acq_data_ai, c=1)
 
         alpha = 0.3
-        TV = FGP_TV(alpha=alpha, nonnegativity=False)
+        TV = FGP_TV(alpha=alpha, nonnegativity=False, device='gpu')
         G = TV
+
+        # add logger callback to FISTA
+        lc = LogfileCallback(log_file=os.path.join(recon_dir, "fista_log.txt"))
 
         # Set up FISTA
         fista = FISTA(initial=x_init.fill(0.0), f=f, g=G)
@@ -95,7 +102,7 @@ for file in mod_input_files:
 
         # Run FISTA for least squares
         num_iterations = 80
-        fista.run(num_iterations)
+        fista.run(num_iterations, callback=lc)
 
         to_dicom_folder(
             data=fista.solution.as_array(), 
@@ -103,3 +110,14 @@ for file in mod_input_files:
             filename_prefix="sirf_recon_" + os.path.basename(file).replace(".h5", ""),
             series_description=f"SIRF recon_{num_iterations} LS+ {alpha} TV"
         )
+
+# delete proc_dir
+if os.path.exists(proc_dir):
+    logger.info(f"Deleting temporary processing directory {proc_dir}...")
+    try:
+        for fname in os.listdir(proc_dir):
+            os.remove(os.path.join(proc_dir, fname))
+        os.rmdir(proc_dir)
+        logger.info("Temporary processing directory deleted successfully.")
+    except Exception as e:
+        logger.error(f"Error deleting temporary processing directory: {e}")
