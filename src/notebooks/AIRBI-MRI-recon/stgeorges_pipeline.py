@@ -18,7 +18,7 @@ from cil.optimisation.algorithms import FISTA, CGLS, GD
 from cil.plugins.ccpi_regularisation.functions import FGP_TV
 from cil.framework import DataContainer as cilDataContainer
 from cil.optimisation.operators import LinearOperator
-from cil.optimisation.utilities.callbacks import LogfileCallback
+from cil.optimisation.utilities.callbacks import ProgressCallback
 import tempfile
 
 logger = logging.getLogger(__name__)
@@ -102,7 +102,7 @@ for file in mod_input_files:
 
         # Run FISTA for least squares
         num_iterations = 10
-        fista.run(num_iterations, callback=lc)
+        fista.run(num_iterations, callback=[ProgressCallback(), lc])
 
         to_dicom_folder(
             data=fista.solution.as_array(), 
