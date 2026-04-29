@@ -1,6 +1,7 @@
 import ismrmrd
 import os
 from sirf.Gadgetron import ImageData
+from cil.optimisation.utilities.callbacks import Callback
 
 def change_ismrmrd(full_filename_in, full_filename_out, matrixSizeY=None):
     if full_filename_in == full_filename_out:
@@ -385,3 +386,16 @@ def save_numpy_to_dicom_series(
 
         output_path = foldername / f"{filename_prefix}_{slice_idx:04d}.dcm"
         ds.save_as(output_path, enforce_file_format=True)
+
+
+class LogfileCallback(Callback):
+    def __init__(self, log_file: str, verbose: bool = False):
+        self.log_file = log_file
+        self.verbose = verbose
+
+    def __call__(self, algorithm) -> None:
+        iteration = algorithm.iteration
+        objective_value = algorithm.get_last_objective()
+        if self.verbose and algorithm.iteration % algorithm.update_objective_interval == 0:
+            with open(self.log_file, "a") as f:
+                f.write(f"Iteration {iteration}: objective value = {objective_value}\n")

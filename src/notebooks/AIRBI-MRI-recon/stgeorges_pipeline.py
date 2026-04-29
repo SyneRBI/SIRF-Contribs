@@ -3,7 +3,7 @@ import os
 import logging
 import numpy as np
 
-from stgeorges_utils import change_ismrmrd, to_dicom_folder
+from stgeorges_utils import change_ismrmrd, to_dicom_folder, LogfileCallback
 
 from sirf.Gadgetron import AcquisitionData, ImageData
 from sirf.Gadgetron import AcquisitionModel
@@ -94,15 +94,15 @@ for file in mod_input_files:
         G = TV
 
         # add logger callback to FISTA
-        # lc = LogfileCallback(log_file=os.path.join(recon_dir, "fista_log.txt"))
+        lc = LogfileCallback(log_file=os.path.join(recon_dir, "fista_log.txt"))
 
         # Set up FISTA
         fista = FISTA(initial=x_init.fill(0.0), f=f, g=G)
         fista.update_objective_interval = 5
 
         # Run FISTA for least squares
-        num_iterations = 80
-        fista.run(num_iterations)
+        num_iterations = 10
+        fista.run(num_iterations, callback=lc)
 
         to_dicom_folder(
             data=fista.solution.as_array(), 
