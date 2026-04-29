@@ -7,4 +7,5 @@ RUN pip install ismrmrd
 RUN git clone --branch downsampled-MRI-recon-stgeorge --depth 1 https://github.com/paskino/SIRF-Contribs.git
 
 WORKDIR /home/jovyan/SIRF-Contribs/src/notebooks/AIRBI-MRI-recon
-CMD ["python" , "stgeorges_pipeline.py"]
+CMD ["bash" , "mr_recon.sh"]
+# CMD ["id", "-a"]

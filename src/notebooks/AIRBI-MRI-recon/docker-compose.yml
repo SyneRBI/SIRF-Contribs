@@ -1,16 +1,15 @@
-version: '3.8'
-
 services:
   sirf-mri-recon:
     build: . # Use the Dockerfile in the current directory
     container_name: sirf-mri-recon
+    user: "${UID}:${GID}"
     # ports:
     #   - "8888:8888"
     volumes:
       - ./workdir:/home/jovyan/work
       - /mnt/share-private/materials:/mnt/materials
       - /mnt/share-private/materials/SIRF2/person/:/input
-      - ./workdir/recons:/output
+      - /home/ubuntu/workdir/recons:/output
     # deploy: { resources: { reservations: { devices: [ {driver: nvidia, count: all, capabilities: [gpu] } ] } } }
     stdin_open: true
     tty: true
