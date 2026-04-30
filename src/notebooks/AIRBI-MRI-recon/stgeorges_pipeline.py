@@ -105,7 +105,7 @@ for file in mod_input_files:
         fista.run(num_iterations)
 
         to_dicom_folder(
-            data=fista.solution.as_array(), 
+            data=fista.solution, 
             foldername=recon_dir, 
             filename_prefix="sirf_recon_" + os.path.basename(file).replace(".h5", ""),
             series_description=f"SIRF recon_{num_iterations} LS+ {alpha} TV"

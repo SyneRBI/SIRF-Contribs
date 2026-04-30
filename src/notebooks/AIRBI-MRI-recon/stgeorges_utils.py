@@ -40,10 +40,43 @@ from pathlib import Path
 import pydicom
 from pydicom.pixels import set_pixel_data
 import datetime
+import sirf.Reg as reg
+import sirf.Gadgetron as mr
+import tempfile
+from nii2dcm.run import run_nii2dcm
+
+
+def to_dicom_folder(
+    data: mr.ImageData, 
+    foldername: str | Path,
+    filename_prefix: str = "sirf",
+    series_uid: str | None = None,
+    series_description: str | None = None,
+    resolution: float = 1.0,
+    **kwargs
+) -> None:
+
+    # cast to range of uint16
+    pixel_data = data.abs()
+    pixel_data = pixel_data / pixel_data.max() * (2**16 - 1)
+    # pixel_data = np.swapaxes(pixel_data, -1, -2)
+
+    # save to temporary nifti file
+    nim = reg.NiftiImageData3D(pixel_data)
+    
+    nii_fname =os.path.join(foldername, "temp.nii")
+    nim.write(nii_fname)
+    
+    run_nii2dcm(nii_fname, foldername, dicom_type="MR")
+
+    os.remove(nii_fname)
+
+    
+
 
 # import pysnooper
 # @pysnooper.snoop()
-def to_dicom_folder(
+def _to_dicom_folder(
     data: np.ndarray,
     foldername: str | Path,
     filename_prefix: str = "sirf",
