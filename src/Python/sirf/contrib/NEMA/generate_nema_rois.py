@@ -38,12 +38,51 @@ __version__ = '0.1.0'
 
 
 import numpy as np
-import sys
+import sys, os
 
 import sirf.Reg as Reg
 import math as m
 
 import sirf.STIR  as pet
+import matplotlib.pyplot as plt
+
+def plot_image(image, save_name=None, transverse_slice=-1, coronal_slice=-1, sagittal_slice=-1, vmin=0, vmax=None,
+               alpha=None, **kwargs):
+    """
+    Plot transverse/coronal/sagital slices through sirf.STIR.ImageData
+    """
+    if transverse_slice < 0:
+        transverse_slice = image.dimensions()[0] // 2
+    if coronal_slice < 0:
+        coronal_slice = image.dimensions()[1] // 2
+    if sagittal_slice < 0:
+        sagittal_slice = image.dimensions()[2] // 2
+    arr = image.as_array()
+    if vmax is None:
+        vmax = np.percentile(arr, 99.995)
+
+    alpha_trans = None
+    alpha_cor = None
+    alpha_sag = None
+    if alpha is not None:
+        alpha_arr = alpha.as_array()
+        alpha_trans = alpha_arr[transverse_slice, :, :]
+        alpha_cor = alpha_arr[:, coronal_slice, :]
+        alpha_sag = alpha_arr[:, :, sagittal_slice]
+
+    ax = plt.subplot(131)
+    plt.imshow(arr[transverse_slice, :, :], vmin=vmin, vmax=vmax, alpha=alpha_trans, **kwargs)
+    ax.set_title(f"T={transverse_slice}")
+    ax = plt.subplot(132)
+    plt.imshow(arr[:, coronal_slice, :], vmin=vmin, vmax=vmax, alpha=alpha_cor, **kwargs)
+    ax.set_title(f"C={coronal_slice}")
+    ax = plt.subplot(133)
+    plt.imshow(arr[:, :, sagittal_slice], vmin=vmin, vmax=vmax, alpha=alpha_sag, **kwargs)
+    ax.set_title(f"S={sagittal_slice}")
+    plt.colorbar(shrink=.6)
+    if save_name is not None:
+        plt.savefig(save_name + '_slices.png')
+        plt.suptitle(os.path.basename(save_name))
 
 def recon_from_sino(acq_data, initial_image):
     # Run a simple recon to use as reference image to register ROI with PET
@@ -75,6 +114,8 @@ def recon_from_sino(acq_data, initial_image):
 def construct_NEMA_spheres_and_save(image: pet.ImageData, angle_smallest=210):
     # Generates the spheres given the geometry of the input image. An image for each sphere and one with all the spheres
     # are generated and saved to nii format
+
+    recon_image = image.clone()
     
     R = 114/2
     # TODO next line is specific to current STIR conventions
@@ -167,6 +208,11 @@ def construct_NEMA_spheres_and_save(image: pet.ImageData, angle_smallest=210):
     parfile=pet.get_STIR_examples_dir()+'/samples/stir_math_ITK_output_file_format.par'
 
     image.write_par(data_output_path+'unregistered_spheres.nii',parfile)
+    plt.figure()
+    plot_image(recon_image, alpha=(image+.5) / 1.5, save_name=data_output_path+'unregistered_spheres')
+
+
+    
 
     #unregistered_spheres to nifty
     image7.write_par(data_output_path+'unregistered_sphere7.nii',parfile)
@@ -178,7 +224,9 @@ def construct_NEMA_spheres_and_save(image: pet.ImageData, angle_smallest=210):
     image1.write_par(data_output_path+'unregistered_sphere1.nii',parfile)
 
 def do_registration(recon_image):
-    # run the registration between the reconstructed image in input and  the image containing all the 6 NEMA spheres
+    #  - write SIRF recon image as Nifty, read from Nifty
+    #  - read sphere images from Nifty, save them into a list of Nifty Image Datas.
+    #  - run the registration between the reconstructed image in input and the image containing all the 6 NEMA spheres
     # return the transformation matrix, nifti registered image, and the unregistered image
      
     parfile=pet.get_STIR_examples_dir()+'/samples/stir_math_ITK_output_file_format.par'
@@ -212,13 +260,18 @@ def do_registration(recon_image):
     np.set_printoptions(precision=3,suppress=True)
     TM = algo.get_transformation_matrix_forward()
     print(TM.as_array())
+
+    plt.figure()
+    plot_image(recon_nii, alpha = (reg_image - reg_image.min()) / (reg_image.max() - reg_image.min()), save_name=data_output_path +'_registered_spheres')
+
+
     return TM, reg_image, unregistered_sphere_nii
 
 def generate_nema_rois(recon_image: pet.ImageData, angle_smallest=210):
     #This actually  calls the different functions and return/save the registered ROI
     
     construct_NEMA_spheres_and_save(recon_image, angle_smallest)
-    TM, reg_image, unregistered_sphere_nii = do_registration(recon_image)    
+    TM, reg_image, unregistered_sphere_nii = do_registration(recon_image) # this "converts" the SIRF into a Nifty-Image as well
 
     #once we have the registration matrix we can then apply it to the sphere generation
     resampler = Reg.NiftyResample()
@@ -241,6 +294,10 @@ def generate_nema_rois(recon_image: pet.ImageData, angle_smallest=210):
         Roi.write(data_output_path+'S'+str(j+1)+'.nii')#TODO getting sirf imagedata to nifty to work without messing the orientation
         ROIsirf = pet.ImageData(data_output_path+'S'+str(j+1)+'.nii')
         ROIsirf.write(data_output_path+'S'+str(j+1))
+        ## add an overlay of ROI and image
+        plt.figure()
+        plot_image(recon_image, alpha=(ROIsirf+.5) / 1.5, save_name=data_output_path +'S'+str(j+1) + "_and_OSEM")
+
         ROIs.append(ROIsirf)
 
     return ROIs
@@ -272,6 +329,12 @@ if __name__ == '__main__':
             recon_image = recon_from_sino(acq_data, initial_image)
     else:
         recon_image=pet.ImageData(recon_image_file)
-        
-    generate_nema_rois(recon_image)
 
+    angle_smallest = args['--angle-smallest-sphere']
+
+    if angle_smallest is None:
+        angle_smallest = 210
+    else:
+        angle_smallest = float(angle_smallest)
+        
+    generate_nema_rois(recon_image, angle_smallest=angle_smallest)
