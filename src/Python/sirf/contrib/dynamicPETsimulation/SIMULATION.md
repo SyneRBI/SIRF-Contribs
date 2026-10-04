@@ -190,11 +190,12 @@ ground truth.
 
 ## PET acquisition model and count noise
 
-SIRF's Python interface and STIR [2] provide the acquisition geometry,
-attenuation model, forward projection, and reconstruction. The example
-configuration uses a Siemens mMR acquisition template with span 11 and maximum
-ring difference 60. The source activity and attenuation volumes are resampled
-to the scanner image grid while preserving voxel values.
+The SIRF framework [3] and its Python interface to STIR [2] provide the
+acquisition geometry, attenuation model, forward projection, and
+reconstruction. The example configuration uses a Siemens mMR acquisition
+template with span 11 and maximum ring difference 60. The source activity and
+attenuation volumes are resampled to the scanner image grid while preserving
+voxel values.
 
 Forward projection uses the moved activity volume and the attenuation map
 moved by the same frame transform. Thus, the activity and attenuation
@@ -349,3 +350,6 @@ subset of a batch does not change the random sequence for a given sample index.
    and M. W. Jacobson, “STIR: software for tomographic image reconstruction
    release 2,” *Physics in Medicine & Biology*, 57(4), 867–883 (2012).
    [doi:10.1088/0031-9155/57/4/867](https://doi.org/10.1088/0031-9155/57/4/867)
+3. E. Ovtchinnikov et al., “SIRF: Synergistic Image Reconstruction Framework,”
+   *Computer Physics Communications*, 249, 107087 (2020).
+   [doi:10.1016/j.cpc.2019.107087](https://doi.org/10.1016/j.cpc.2019.107087)

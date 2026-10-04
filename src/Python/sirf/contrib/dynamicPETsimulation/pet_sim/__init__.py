@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-"""Configurable batch PET simulation pipeline derived from data_simulation_v13."""
+"""Configurable dynamic PET simulation pipeline, including motion."""
 
 from .config import SimulationConfig, load_config
 

@@ -1,25 +1,29 @@
 # Batch Dynamic PET Simulator
 
-This contribution was migrated from the `data_simulation` directory on the
-`yiming` branch of
-[`KrisThielemans/Using-Deep-Learning-to-correct-parametric-images-for-motion-in-dynamic-PET`](https://github.com/KrisThielemans/Using-Deep-Learning-to-correct-parametric-images-for-motion-in-dynamic-PET/tree/yiming/data_simulation).
+This contribution is based on work described in the following MSc reports:
 
-The simulation design was informed by earlier work by William Wei and Haoran
-Lu, but this contribution does not copy their source code.
+- Miao Su, “Using Deep Learning to Correct Parametric Images for Motion in
+  Dynamic PET,” Master's report, University College London, 2026.
+- Yiming Li, “Deep Learning-Based Six-Degree-of-Freedom Rigid Motion
+  Estimation for Simulated Dynamic PET,” MSc report, 2026.
+
+We thank William Wei for his earlier work, which informed the design of this
+simulation pipeline. The design was also informed by earlier work by Haoran Lu,
+but this contribution does not copy source code from either work.
 
 See [SIMULATION.md](SIMULATION.md) for a detailed description of the simulation methodology.
 
 ## Requirements
 
-Run the simulator in a Python environment with SIRF/STIR already installed and configured. SIRF/STIR is not installed automatically by this project.
+SIRF with STIR support must already be installed and configured before the
+Python dependencies below are installed. This contribution does not install
+SIRF/STIR automatically.
 
-Install SIRF-Contribs from the repository root directory:
+From the repository root directory, install the Python dependencies with:
 
 ```bash
-python -m pip install .
+python -m pip install -r src/Python/sirf/contrib/dynamicPETsimulation/requirements.txt
 ```
-
-For an editable development installation, use `python -m pip install -e .`.
 
 ## Included input files
 
