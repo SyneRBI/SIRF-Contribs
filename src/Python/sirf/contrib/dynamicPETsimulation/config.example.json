@@ -1,0 +1,108 @@
+{
+  "inputs": {
+    "aif_mat": "input/AIF_FDG.mat",
+    "xcat_mat": "input/XCAT_Mask_400x400x900_act_NoLes.mat",
+    "lookup_table": "input/XCAT_mask_look_up_table.txt"
+  },
+  "batch": {
+    "num_samples": 5,
+    "start_index": 0,
+    "master_seed": 65898545,
+    "output_root": "batch_output_liver_5",
+    "resume": true,
+    "fail_fast": false
+  },
+  "anatomy": {
+    "target_organ": "liver",
+    "organ_id": 13,
+    "bed_z_size": 127,
+    "voxel_cm_xyz": [0.203642, 0.203642, 0.2025],
+    "max_initial_translation_cm_xyz": [5.0, 5.0, 4.0],
+    "initial_scale_range": [0.95, 1.05],
+    "max_initial_rotation_deg_xyz": [10.0, 10.0, 10.0]
+  },
+  "frames": {
+    "n_frames": 8,
+    "duration_seconds": 60.0,
+    "start_scan_seconds": 1200.0,
+    "end_scan_seconds": 3600.0,
+    "points_per_min": 100
+  },
+  "kinetics": {
+    "use_missing_replacement": true,
+    "replacement_name": "body_activity"
+  },
+  "lesion": {
+    "base_parameters": {
+      "k1": 1.056,
+      "k2": 1.029,
+      "k3": 0.32,
+      "k4": 0.0,
+      "Vb": 0.205
+    },
+    "parameter_multiplier_ranges": {
+      "k1": [0.9, 1.1],
+      "k2": [0.9, 1.1],
+      "k3": [0.85, 1.15],
+      "k4": [1.0, 1.0],
+      "Vb": [0.9, 1.1]
+    },
+    "base_radius_xyz": [6.0, 6.0, 4.0],
+    "radius_multiplier_range": [0.2, 1.2],
+    "min_distance_margin_voxels": 1.0,
+    "attenuation_class": "Body"
+  },
+  "attenuation": {
+    "mu_cm": {
+      "Air": 0.0,
+      "Body": 0.0927,
+      "Lung": 0.0267,
+      "Bone": 0.1305
+    },
+    "roi_classes": {
+      "1": "Body", "2": "Body", "3": "Body", "4": "Body", "5": "Body",
+      "6": "Body", "7": "Body", "8": "Body", "9": "Body", "10": "Body",
+      "11": "Body", "12": "Body", "13": "Body", "14": "Body", "15": "Lung",
+      "16": "Body", "17": "Body", "18": "Body", "20": "Body", "21": "Body",
+      "22": "Body", "23": "Body", "24": "Body", "25": "Body", "26": "Bone",
+      "27": "Bone", "28": "Bone", "29": "Body", "30": "Bone", "31": "Body",
+      "32": "Body", "33": "Body", "34": "Body", "35": "Body", "36": "Body",
+      "37": "Body", "38": "Body", "39": "Body", "45": "Body", "46": "Body",
+      "47": "Air", "52": "Air", "70": "Body", "71": "Body", "72": "Body",
+      "73": "Lung", "74": "Lung", "75": "Lung"
+    },
+    "unknown_nonzero_default": "Body"
+  },
+  "motion": {
+    "min_events": 1,
+    "max_events": 1,
+    "max_translation_cm_xyz": [1.0, 1.0, 1.0],
+    "max_rotation_deg_xyz": [10.0, 10.0, 5.0]
+  },
+  "scanner": {
+    "name": "Siemens mMR",
+    "span": 11,
+    "max_ring_diff": 60
+  },
+  "projection": {
+    "add_background": true,
+    "background_fraction": 0.05,
+    "noise_scaling_factor": 20.0,
+    "save_noisy_projections": true
+  },
+  "reconstruction": {
+    "num_subsets": 7,
+    "num_subiterations": 63,
+    "save_interfile": false
+  },
+  "patlak": {
+    "start_min": 20.0,
+    "end_min": 60.0,
+    "cp_epsilon": 1e-8
+  },
+  "output": {
+    "h5_name": "project_pet_dynamic.h5",
+    "compression": true,
+    "keep_failed_sample": true
+  }
+}

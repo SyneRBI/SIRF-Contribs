@@ -1,0 +1,92 @@
+Voxel dimensions (xyz): 0.203642cm x 0.203642cm x 0.2025cm
+Phantom size: 400 x 400 x 900
+
+ASSIGNED ROI VALUE				XCAT ROI Type                                                         k1              k2              k3               k4              Vb
+
+body_activity = 1               # body_activity (background activity) ;                                              0.047           0.325          0.084              0               0.029
+bldplRA_act = 2                 # hrt_bldplRA_act - activity in right atria chamber (blood pool);                    0               0              0                  0               1
+bldplLA_act = 3           	# hrt_bldplLA_act - activity in left atria chamber (blood pool);                     0               0              0                  0               1
+bldplRV_act = 4          	# hrt_bldplRV_act -  -  in right ventricle chamber (blood pool);                     0               0              0                  0               1
+bldplLV_act = 5          	# hrt_bldplLV_act - activity in left ventricle chamber (blood pool);                 0               0              0                  0               1
+myoRA_act = 6           	# hrt_myoRA_act - activity in right atrium myocardium;                               0.196           1.022          0.149              0               0.545
+myoLA_act = 7              	# hrt_myoLA_act - activity in left atrium myocardium;                                0.196           1.022          0.149              0               0.545
+myoRV_act = 8              	# hrt_myoRV_act - activity in right ventricle myocardium;                            0.196           1.022          0.149              0               0.545     
+myoLV_act = 9              	# hrt_myoLV_act - activity in left ventricle myocardium;                             0.196           1.022          0.149              0               0.545
+muscle_activity = 10            # muscle activity;                                                                   0.131           0.199          0.344              0               0.019
+brain_activity = 11             # brain activity;                                                                    0.088           0.125          0.043              0               0.05
+sinus_activity = 12             # sinus activity;                                                                    0.047           0.325          0.084              0               0.029
+liver_activity = 13             # liver_activity;                                                                    1.256           1.329          0.02               0               0.165
+gall_bladder_activity = 14      # gall_bladder_activity;                                                             0.047           0.325          0.084              0               0.029
+lung_activity = 15              # lung_activity;                                                                     0.114           0.291          0.036              0               0.151
+esophagus_activity = 16         # esophagus_activity;                                                                0.416           0.619          0.046              0               0.065
+laryngopharynx_activity = 17    # laryngopharynx_activity;                                                           0.416           0.619          0.046              0               0.065
+st_wall_activity = 18           # st_wall_activity (stomach wall);                                                   0.416           0.619          0.046              0               0.065
+pancreas_activity = 20          # pancreas_activity;                                                                 0.648           1.640          0.027              0               0.107
+kidney_cortex_activity = 21     # kidney_cortex_activity;                                                            0.263           0.299           0                 0               0.438
+kidney_medulla_activity = 22    # kidney_medulla_activity;                                                           0.263           0.299           0                 0               0.438
+adrenal_activity = 23           # adrenal_activity;                                                                  0.047           0.325          0.084              0               0.029
+renal_pelvis_activity = 24      # renal_pelvis_activity;                                                             0.160           0.2            0.06               0               0
+spleen_activity = 25            # spleen_activity;                                                                   1.207           1.909          0.008              0               0.25
+rib_activity = 26               # rib_activity;                                                                      0.160           0.2            0.06               0               0
+cortical_bone_activity = 27     # cortical_bone_activity;                                                            0.160           0.2            0.06               0               0
+spine_activity = 28             # spine_activity;                                                                    0.160           0.2            0.06               0               0
+spinal_cord_activity = 29       # spinal_cord_activity;                                                              0.160           0.2            0.06               0               0
+bone_marrow_activity = 30       # bone_marrow_activity;                                                              0.160           0.2            0.06               0               0
+art_activity = 31               # artery_activity;                                                                   0               0              0                  0               1
+vein_activity = 32              # vein_activity;                                                                     0               0              0                  0               1
+bladder_activity = 33           # bladder_activity;                                                                  0               0              0                  0               0.1
+prostate_activity = 34          # prostate_activity;                                                                 0.151           0.199          0.244              0               0.069
+asc_li_activity = 35            # ascending_large_intest_activity;                                                   0.416           0.619          0.046              0               0.065
+trans_li_activity = 36          # transcending_large_intest_activity;                                                0.416           0.619          0.046              0               0.065
+desc_li_activity = 37           # desc_large_intest_activity;                                                        0.416           0.619          0.046              0               0.065
+sm_intest_activity = 38         # small_intest_activity;                                                             0.416           0.619          0.046              0               0.065
+rectum_activity = 39            # rectum_activity;                                                                   0.047           0.325          0.084              0               0.029
+pericardium_activity = 45       # pericardium activity;                                                              0.196           1.022          0.149              0               0.545
+cartilage_activity = 46         # cartilage activity;                                                                0.160           0.2            0.06               0               0
+intest_air_activity = 47     	# activity of intestine contents (air);                                              0.416           0.619          0.046              0               0.065
+airway_activity = 52            # airway tree activity;                                                              0.071           0.129          0.144              0               0.019
+tumour_1 = 70                   # Liver lesions 1;                                                                   1.056           1.029          0.520              0               0.205
+tumour_2 = 71                   # Liver lesions 2;                                                                   1.056           1.029          0.420              0               0.205
+tumour_3 = 72                   # Liver lesions 3;                                                                   1.056           1.029          0.320              0               0.205
+tumour_4 = 73                   # Lung lesion 1;                                                                     0.214           0.201          0.536              0               0.251
+tumour_5 = 74                   # Lung lesion 2;                                                                     0.214           0.201          0.436              0               0.251
+tumour_6 = 75                   # Lung lesion 3;                                                                     0.214           0.201          0.336              0               0.251
+
+Linear Attenuation Coefficients (in units of 1/cm, to obtain these units multiply original AC values (in units of 1/pixel) by 1/0.203642cm):
+   Body (water)   =       0.0927
+   Muscle         =       0.0968
+   Adipose (fat)  =       0.0868
+   Lung           =       0.0267
+   Spine Bone     =       0.1101
+   Rib Bone       =       0.1305
+   Blood          =       0.0976
+   Heart          =       0.0969
+   Kidney         =       0.0968
+   Liver          =       0.0977
+   Lymph          =       0.0952
+   Pancreas       =       0.0962
+   Spleen         =       0.0977
+   Intestine      =       0.0952
+   Skull          =       0.1430
+   Cartilage      =       0.1008
+   Brain          =       0.0963
+   Air            =       0.0000
+
+Original Linear Attenuation Coefficients (in units of 1/pixel, which are the units originally used in the produced attenuation coefficient (AC) map):
+   Body (water)   =       0.0189
+   Muscle         =       0.0197
+   Adipose (fat)  =       0.0177
+   Lung           =       0.0054
+   Spine Bone     =       0.0224
+   Rib Bone       =       0.0266
+   Blood          =       0.0199
+   Heart          =       0.0197
+   Kidney         =       0.0197
+   Liver          =       0.0199
+   Lymph          =       0.0194
+   Pancreas       =       0.0196
+   Spleen         =       0.0199
+   Intestine      =       0.0194
+   Skull          =       0.0291
+   Cartilage      =       0.0205
+   Brain          =       0.0196

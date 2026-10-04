@@ -1,0 +1,10 @@
+Copyright 2023 University College London (UCL)
+Copyright 2026 Yiming Li
+Copyright 2026 Miao Su
+
+This contribution contains the dynamic PET simulation code migrated from the
+`yiming` branch of
+KrisThielemans/Using-Deep-Learning-to-correct-parametric-images-for-motion-in-dynamic-PET.
+
+The contribution is distributed under the Apache License 2.0 in the
+SIRF-Contribs repository root.

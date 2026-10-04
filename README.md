@@ -20,6 +20,7 @@ pip install git+https://github.com/SyneRBI/SIRF-Contribs
 
 ## Current contents
 
+- [Dynamic PET simulation](./src/Python/sirf/contrib/dynamicPETsimulation) - batch generation of simulated dynamic PET data using SIRF/STIR.
 - [KCL priors](./src/Python/sirf/contrib/kcl) - de Pierro, Bowsher, etc. priors
 - [brainweb](./src/Python/sirf/contrib/brainweb-utilities) - preliminary script to create brainweb data with some extra features.
 - [MCIR](./src/Python/sirf/contrib/MCIR) - scripts for the MR and PET MCIR reconstructions.
