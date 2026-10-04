@@ -50,14 +50,8 @@ def run_patlak(project_h5, context, config, aif_time_min, aif_cp, points_per_min
             raise RuntimeError(f"reconstruction shape {reconstruction.shape} != expected {expected}")
         for local_index, frame_index in enumerate(frame_indices):
             frame = reconstruction[int(frame_index)].astype(np.float32)
-            accumulate_patlak_frame(
-                reconstructed_ki,
-                reconstructed_vd,
-                frame,
-                cp_average[local_index],
-                slope_weights[local_index],
-                intercept_weights[local_index]
-            )
+            accumulate_patlak_frame(reconstructed_ki, reconstructed_vd, frame, cp_average[local_index],
+                                    slope_weights[local_index], intercept_weights[local_index])
             del frame
             gc.collect()
 
@@ -170,6 +164,8 @@ def run_patlak(project_h5, context, config, aif_time_min, aif_cp, points_per_min
             "ground_truth_source": "direct formulas from transformed-label kinetic parameters",
             "ground_truth_ki_formula": "(1 - Vb) * K1 * k3 / (k2 + k3)",
             "ground_truth_vd_formula": "(1 - Vb) * K1 * k2 / (k2 + k3)^2 + Vb",
+            "ground_truth_zero_rate_rule": "K1=k2=k3=0: Ki=0, Vd=Vb",
+            "ground_truth_zero_rate_assumption": "zero initial tissue activity; blood term Vb*Cp",
             "negative_reconstructed_values_clipped": False
         }
     )
@@ -194,16 +190,9 @@ def average_aif_terms_over_frames(frame_start_min, frame_end_min, aif_time_min, 
     starts = np.asarray(frame_start_min, dtype=np.float64)
     ends = np.asarray(frame_end_min, dtype=np.float64)
     max_time = float(np.max(ends))
-    uniform_time = np.linspace(
-        0.0,
-        max_time,
-        int(np.ceil(max_time * points_per_min)) + 1,
-        dtype=np.float64
-    )
+    uniform_time = np.linspace(0.0,max_time,int(np.ceil(max_time * points_per_min)) + 1,dtype=np.float64)
     aif_time = np.asarray(aif_time_min, dtype=np.float64)
-    integration_time = np.unique(
-        np.concatenate([uniform_time, aif_time[(aif_time >= 0.0) & (aif_time <= max_time)], starts, ends])
-    )
+    integration_time = np.unique(np.concatenate([uniform_time, aif_time[(aif_time >= 0.0) & (aif_time <= max_time)], starts, ends]))
     cp_continuous = np.interp(
         integration_time,
         aif_time,
@@ -252,9 +241,33 @@ def accumulate_patlak_frame(ki_map, vd_map, tissue_frame_average, cp_frame_avera
 
 
 def kinetic_parameters_to_patlak_gt(k1, k2, k3, vb):
+    """Convert kinetic parameters, including exact-zero-rate blood/background.
+
+    Assumes zero initial tissue activity and the pipeline's Vb * Cp blood term.
+    This targeted fix does not add support for K1 > 0 with k2 = k3 = 0.
+    """
+    k1, k2, k3, vb = (float(value) for value in (k1, k2, k3, vb))
+    values = np.asarray([k1, k2, k3, vb], dtype=np.float64)
+    if not np.all(np.isfinite(values)):
+        raise ValueError(f"Kinetic parameters must be finite: {values.tolist()}")
+    if k1 < 0.0 or k2 < 0.0 or k3 < 0.0:
+        raise ValueError(f"Kinetic rates must be nonnegative: {values.tolist()}")
+    if not 0.0 <= vb <= 1.0:
+        raise ValueError(f"Vb must be in [0, 1], got {vb}")
+
+    # Use exact zeros; small positive rates are not silently treated as zero.
+    if k1 == 0.0 and k2 == 0.0 and k3 == 0.0:
+        return 0.0, vb
+
     denominator = float(k2) + float(k3)
     if denominator <= 0:
-        raise ValueError("k2 + k3 must be positive")
+        raise ValueError(
+            "This GT conversion does not implement the K1 > 0, k2 = k3 = 0 "
+            "special case; review the intended model rather than replacing "
+            "zero rates with epsilon."
+        )
     ki = (1.0 - float(vb)) * float(k1) * float(k3) / denominator
     vd = (1.0 - float(vb)) * float(k1) * float(k2) / denominator ** 2 + float(vb)
+    if not np.all(np.isfinite([ki, vd])):
+        raise ValueError(f"Non-finite Patlak parameters: Ki={ki}, Vd={vd}")
     return float(ki), float(vd)
